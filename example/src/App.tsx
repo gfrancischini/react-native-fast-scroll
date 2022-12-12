@@ -1,31 +1,32 @@
-import * as React from 'react';
+import 'react-native-gesture-handler';
+import React from 'react';
+import { ListsProfiler } from '@shopify/react-native-performance-lists-profiler';
+import { Platform, UIManager } from 'react-native';
 
-import { StyleSheet, View, Text } from 'react-native';
-import { multiply } from 'react-native-fast-scroll';
+import { DebugContextProvider } from './debug';
+import NavigationTree from './NavigationTree';
 
-export default function App() {
-  const [result, setResult] = React.useState<number | undefined>();
-
-  React.useEffect(() => {
-    multiply(3, 7).then(setResult);
-  }, []);
+const App = () => {
+  if (Platform.OS === 'android') {
+    if (UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }
 
   return (
-    <View style={styles.container}>
-      <Text>Result: {result}</Text>
-    </View>
+    <ListsProfiler
+      onInteractive={(TTI) => {
+        console.log(`TTI in millis: ${TTI}`);
+      }}
+      onBlankArea={(offsetStart, offsetEnd) => {
+        console.log(`Blank area: ${Math.max(offsetStart, offsetEnd)}`);
+      }}
+    >
+      <DebugContextProvider>
+        <NavigationTree />
+      </DebugContextProvider>
+    </ListsProfiler>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  box: {
-    width: 60,
-    height: 60,
-    marginVertical: 20,
-  },
-});
+export default App;

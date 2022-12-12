@@ -1,6 +1,6 @@
 {
   "name": "react-native-fast-scroll",
-  "version": "0.1.0",
+  "version": "0.1.0-1",
   "description": "test",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
@@ -30,7 +30,7 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
-    "prepack": "bob build",
+    "1prepack": "bob build",
     "release": "release-it",
     "example": "yarn --cwd example",
     "bootstrap": "yarn example && yarn install"
@@ -56,8 +56,7 @@
     "@react-native-community/eslint-config": "^3.0.2",
     "@release-it/conventional-changelog": "^5.0.0",
     "@types/jest": "^28.1.2",
-    "@types/react": "~17.0.21",
-    "@types/react-native": "0.70.0",
+    "@types/react-native": "~0.70.9",
     "commitlint": "^17.0.2",
     "del-cli": "^5.0.0",
     "eslint": "^8.4.1",
@@ -67,17 +66,23 @@
     "pod-install": "^0.1.0",
     "prettier": "^2.0.5",
     "react": "18.1.0",
-    "react-native": "0.70.5",
+    "react-native": "0.70.6",
     "react-native-builder-bob": "^0.20.0",
     "release-it": "^15.0.0",
-    "typescript": "^4.5.2"
-  },
-  "resolutions": {
-    "@types/react": "17.0.21"
+    "typescript": "^4.5.2",
+    "@shopify/flash-list": "1.4.0",
+    "react-native-gesture-handler": "~2.8.0",
+    "react-native-reanimated": "~2.12.0",
+    "react-native-redash": "^18.1.0"
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "@shopify/flash-list": "1.4.0",
+    "@types/react": "*",
+    "react-native-gesture-handler": "~2.8.0",
+    "react-native-reanimated": "~2.12.0",
+    "react-native-redash": "^18.1.0"
   },
   "engines": {
     "node": ">= 16.0.0"
@@ -88,11 +93,6 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
       "<rootDir>/lib/"
-    ]
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
     ]
   },
   "release-it": {
