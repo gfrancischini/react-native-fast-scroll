@@ -2,6 +2,8 @@
 
 Fast Scroll implementation over Flashlist for react native
 
+![Show Case](./doc/assets/showcase.gif)
+
 ## Installation
 
 ```sh
