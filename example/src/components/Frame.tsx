@@ -1,29 +1,25 @@
 import * as React from 'react';
 
 import { StyleSheet, View, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { DebugContext } from '../debug';
 
 function Frame({ children }: React.PropsWithChildren) {
   const debugContext = React.useContext(DebugContext);
   if (debugContext.smallFrameEnabled) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          <Text style={styles.txtHeader}>Header</Text>
-          <View style={styles.listContainer}>{children}</View>
-          <Text style={styles.txtFooter}>Footer</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <Text style={styles.txtHeader}>Header</Text>
+        <View style={styles.listContainer}>{children}</View>
+        <Text style={styles.txtFooter}>Footer</Text>
+      </View>
     );
   }
-  return <View>{children}</View>;
+  return <View style={styles.containerNormal}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  containerNormal: {
     flex: 1,
-    backgroundColor: 'green',
   },
   container: {
     backgroundColor: 'blue',

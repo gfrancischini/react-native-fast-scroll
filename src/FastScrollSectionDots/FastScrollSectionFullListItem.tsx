@@ -26,7 +26,6 @@ type Props = {
 };
 
 function FastScrollSectionFullListItem({
-  index,
   item,
   isActive,
   scrollToIndex,
@@ -34,7 +33,7 @@ function FastScrollSectionFullListItem({
   const finalText = useMemo(
     () =>
       typeof item.text === 'string' ? (
-        `${index} - ${item.text}`
+        item.text
       ) : typeof item.text === 'function' ? (
         <item.text section={item} isActive={isActive} />
       ) : typeof item.text === 'object' ? (
@@ -44,7 +43,7 @@ function FastScrollSectionFullListItem({
       ) : (
         'Invalid'
       ),
-    [index, isActive, item]
+    [isActive, item]
   );
 
   const styles = useMemo(
@@ -57,6 +56,7 @@ function FastScrollSectionFullListItem({
           paddingVertical: 7,
           color: isActive ? '#262626' : 'white',
           backgroundColor: isActive ? 'white' : undefined,
+          fontWeight: '600',
         },
       }),
     [isActive]
