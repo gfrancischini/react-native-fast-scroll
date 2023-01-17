@@ -24,7 +24,6 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "esnext",
-    "noEmit": true
   },
   "exclude": ["./example"]
 }
