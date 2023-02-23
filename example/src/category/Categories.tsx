@@ -116,6 +116,7 @@ const Categories = () => {
           index: index,
           // @ts-ignore
           // TODO: create a new component for this text and fix the sectionfulldatav2 type
+          // eslint-disable-next-line react/no-unstable-nested-components
           text: ({ section, isActive }: SectionFullDataV2) => {
             const style = StyleSheet.create({
               category1: {
@@ -128,11 +129,13 @@ const Categories = () => {
               },
               category2: { fontWeight: '600' },
             });
-            <>
-              <Text style={style.category1}>{section.category1}</Text>
-              <Text> / </Text>
-              <Text style={style.category2}>{section.category2}</Text>
-            </>;
+            return (
+              <>
+                <Text style={style.category1}>{section.category1}</Text>
+                <Text> / </Text>
+                <Text style={style.category2}>{section.category2}</Text>
+              </>
+            );
           },
           //text: `${item.category1} / ${item.category2}`,
           dotColor: header.showTextWhenInactive ? '#E74C3B' : 'white',
@@ -152,7 +155,7 @@ const Categories = () => {
         <CollapsibleScrollableContainer
           ref={collapsibleScrollableContainerRef}
           scrollToOffset={scrollToOffset}
-          pinned={false}
+          pinned={true}
         >
           <View style={styles.listContainer}>
             <FlashList

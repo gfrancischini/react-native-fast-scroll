@@ -142,7 +142,7 @@ const FastScrollSectionDots = React.forwardRef(
     const scale = useSharedValue(1);
     const translateFastScrollBarXTimer = useRef<NodeJS.Timeout | null>(null);
     const disableOnScrollEvent = useSharedValue(false);
-
+    const pointStylePositionY = useSharedValue(0);
     const fastScrollSectionFullListRef =
       useRef<React.ElementRef<typeof FastScrollSectionFullList>>(null);
 
@@ -250,10 +250,22 @@ const FastScrollSectionDots = React.forwardRef(
         }
 
         if (section != null) {
+          pointStylePositionY.value =
+            dotMargin * (section.sectionIndex + 1) +
+            dotSize * section.sectionIndex +
+            dotSize / 2;
+
           updateScrollPosotion(section);
         }
       },
-      [onScrollToIndex, setActiveIndex, updateScrollPosotion]
+      [
+        dotMargin,
+        dotSize,
+        onScrollToIndex,
+        pointStylePositionY,
+        setActiveIndex,
+        updateScrollPosotion,
+      ]
     );
 
     const clearTimeoutFastScrollBar = () => {
@@ -312,8 +324,6 @@ const FastScrollSectionDots = React.forwardRef(
       };
     };
 
-    const pointStylePositionY = useSharedValue(0);
-
     const updateOnJS = () => {
       if (sharedActiveSection.value !== nearestActiveSection?.index) {
         const section = setActiveIndex(sharedActiveSection.value);
@@ -348,11 +358,12 @@ const FastScrollSectionDots = React.forwardRef(
         pointStylePositionY.value = yPosition;
         disableOnScrollEvent.value = true;
         const snapPoints = sections.map(
-          (_, index) => (dotSize + dotMargin) * index
+          (_, index) => dotMargin * (index + 1) + dotSize * index
         );
         const newTranslate = snapPoint(yPosition, 0, snapPoints);
         const section = sections.find(
-          (_, index) => (dotSize + dotMargin) * index === newTranslate
+          (_, index) =>
+            dotMargin * (index + 1) + dotSize * index === newTranslate
         );
         if (section && sharedActiveSection.value !== section.index) {
           sharedActiveSection.value = section.index;
@@ -366,18 +377,27 @@ const FastScrollSectionDots = React.forwardRef(
         );
 
         const snapPoints = sections.map(
-          (_, index) => (dotSize + dotMargin) * index
+          (_, index) => dotMargin * (index + 1) + dotSize * index
         );
         const newTranslate = snapPoint(yPosition, 0, snapPoints);
         const section = sections.find(
-          (_, index) => (dotSize + dotMargin) * index === newTranslate
+          (_, index) =>
+            dotMargin * (index + 1) + dotSize * index === newTranslate
         );
         if (section) {
           sharedActiveSection.value = section.index;
         }
 
-        pointStylePositionY.value = newTranslate;
+        pointStylePositionY.value = newTranslate + dotSize / 2;
         scale.value = 1;
+
+        // console.log('onstart', {
+        //   containerScrollY: containerScrollY.value,
+        //   eventy: event.y,
+        //   yPosition,
+        //   newTranslate,
+        //   snapPoints,
+        // });
 
         runOnJS(updateOnJS)();
       },
@@ -387,7 +407,7 @@ const FastScrollSectionDots = React.forwardRef(
       return {
         transform: [
           {
-            translateY: pointStylePositionY.value + dotSize / 4 + dotMargin / 2,
+            translateY: pointStylePositionY.value,
           },
           { scale: withSpring(scale.value, springConfig) },
         ],
@@ -410,7 +430,10 @@ const FastScrollSectionDots = React.forwardRef(
           const section = setActiveIndex(index);
           if (section != null) {
             pointStylePositionY.value =
-              (dotSize + dotMargin) * section.sectionIndex;
+              dotMargin * (section.sectionIndex + 1) +
+              dotSize * section.sectionIndex +
+              dotSize / 2;
+
             sharedActiveSection.value = section.index;
             updateScrollPosotion(section);
           }
@@ -452,7 +475,6 @@ const FastScrollSectionDots = React.forwardRef(
           container: {
             flex: 1,
             flexDirection: 'row',
-            //minWidth: 100,
           },
           dot: {
             width: dotSize,
@@ -460,11 +482,8 @@ const FastScrollSectionDots = React.forwardRef(
             borderRadius: dotSize,
             backgroundColor: dotColor,
             overflow: 'visible',
-            //marginTop: 5,
-            //position: 'absolute',
           },
           scrollBar: {
-            //flex: 1,
             backgroundColor: scrollBarColor,
             overflow: 'scroll',
             paddingHorizontal: 5,
@@ -476,26 +495,18 @@ const FastScrollSectionDots = React.forwardRef(
           thumb: {
             left: -5,
             right: -5,
-            //width: dotSize,
-            top: dotSize / 2,
+            top: -dotSize / 4,
             height: dotSize / 2,
-            //borderRadius: dotSize,
             backgroundColor: thumbColor,
             position: 'absolute',
-            //right: 0,
             alignSelf: 'center',
             elevation: 2000,
             zIndex: 2000,
-            //top: 5,
-            //paddingLeft: trackSize / 2,
-            // bottom: 0,
           },
           dotTagContainer: {
             flex: 1,
             top:
               (dotSize + dotMargin) * (nearestActiveSection?.sectionIndex ?? 0),
-            //flexWrap: 'wrap',
-            //backgroundColor: 'yellow',
           },
         }),
       [
