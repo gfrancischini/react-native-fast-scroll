@@ -269,7 +269,7 @@ export const FastScrollIndicator = React.forwardRef(
       <>
         <PanGestureHandler
           onGestureEvent={onGestureEvent}
-          hitSlop={{ horizontal: 50 }}
+          hitSlop={{ horizontal: 20 }}
         >
           <Animated.View
             style={styles.container}
