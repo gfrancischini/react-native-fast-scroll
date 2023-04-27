@@ -30,6 +30,7 @@ import {
 } from '../utils';
 import { snapPoint } from 'react-native-redash';
 import FastScrollSectionFullList from './FastScrollSectionFullList';
+import { debounce, throttle } from 'throttle-debounce';
 
 export type Props = {
   stickyHeaderIndices?: number[];
@@ -99,6 +100,16 @@ export type Props = {
    * @param index The index to scroll the list
    */
   onScrollToIndex: (index: number) => void;
+
+  /**
+   * miliseconds between each section index change detection
+   */
+  throttleIndexChangeDelay: number;
+
+  /**
+   * miliseconds to debvounce onScrollToIndex
+   */
+  debounceOnScrollToIndexDelay: number;
 };
 
 export type FastScrollSectionDotsHandle = {
@@ -116,6 +127,8 @@ export type FastScrollSectionDotsHandle = {
   onViewableIndexChanged: (index: number) => void;
 };
 
+const enableLogs = true;
+
 const FastScrollSectionDots = React.forwardRef(
   (
     {
@@ -130,9 +143,20 @@ const FastScrollSectionDots = React.forwardRef(
       stickyHeaderIndices,
       stickyHeaderIndicesWithData,
       dotMargin = 12,
+      throttleIndexChangeDelay = 300,
+      debounceOnScrollToIndexDelay = 1000,
     }: Props,
     forwardedRef: React.ForwardedRef<FastScrollSectionDotsHandle>
   ) => {
+    const throttleUpdateOnJs = useRef(
+      throttle(
+        throttleIndexChangeDelay,
+        (callback: () => void) => {
+          callback();
+        },
+        { noLeading: false, noTrailing: false }
+      )
+    );
     const containerScrollY = useSharedValue(0);
     const [visible, setVisible] = useState(
       hideFastScrollIndicatorTimeout === 0
@@ -190,7 +214,7 @@ const FastScrollSectionDots = React.forwardRef(
 
     const initialOffsetOfSectionDotsLabel = useRef(0);
 
-    const updateScrollPosotion = useCallback(
+    const updateScrollPosition = useCallback(
       (activeSession: SectionFullDataV2) => {
         let activeIndexStartY =
           (dotSize + dotMargin) * activeSession.sectionIndex;
@@ -232,6 +256,16 @@ const FastScrollSectionDots = React.forwardRef(
       [dotSize, dotMargin, size, sections.length, containerScrollY]
     );
 
+    const debouncedScrollToIndex = useRef(
+      debounce(
+        debounceOnScrollToIndexDelay,
+        (index: number) => {
+          scrollToIndex(index);
+        },
+        { atBegin: false }
+      )
+    );
+
     const reScrollToIndexTime: number = 0;
     const scrollToIndex = useCallback(
       (index: number) => {
@@ -255,7 +289,7 @@ const FastScrollSectionDots = React.forwardRef(
             dotSize * section.sectionIndex +
             dotSize / 2;
 
-          updateScrollPosotion(section);
+          updateScrollPosition(section);
         }
       },
       [
@@ -264,12 +298,13 @@ const FastScrollSectionDots = React.forwardRef(
         onScrollToIndex,
         pointStylePositionY,
         setActiveIndex,
-        updateScrollPosotion,
+        updateScrollPosition,
       ]
     );
 
     const clearTimeoutFastScrollBar = () => {
       if (translateFastScrollBarXTimer.current != null) {
+        enableLogs && console.log('clearTimeoutFastScrollBar');
         clearTimeout(translateFastScrollBarXTimer.current);
         translateFastScrollBarXTimer.current = null;
       }
@@ -325,17 +360,31 @@ const FastScrollSectionDots = React.forwardRef(
     };
 
     const updateOnJS = () => {
+      enableLogs && console.log('updateOnJS');
       if (sharedActiveSection.value !== nearestActiveSection?.index) {
         const section = setActiveIndex(sharedActiveSection.value);
-        scrollToIndex(sharedActiveSection.value);
+
+        debouncedScrollToIndex.current(sharedActiveSection.value);
         if (section != null) {
-          updateScrollPosotion(section);
+          updateScrollPosition(section);
           fastScrollSectionFullListRef.current?.show(section);
-          clearTimeoutFastScrollBar();
+          enableLogs && console.log('updateOnJS', section);
         }
       }
       clearTimeoutFastScrollBar();
     };
+
+    const fastScrollFullListOnScrollToIndex = useCallback(
+      (index: number) => {
+        // clear the debounce that might be still in place
+        enableLogs && console.log('debouncedScrollToIndex.current.cancel');
+        debouncedScrollToIndex.current.cancel({ upcomingOnly: true });
+        scrollToIndex(index);
+      },
+      [scrollToIndex]
+    );
+
+    const updateOnJSThrottle = () => throttleUpdateOnJs.current(updateOnJS);
 
     const onGestureEvent = useAnimatedGestureHandler<
       PanGestureHandlerGestureEvent,
@@ -349,7 +398,10 @@ const FastScrollSectionDots = React.forwardRef(
         pointStylePositionY.value = yPosition;
         ctx.y = translateY.value;
         scale.value = thumbScaleOnPress;
-        runOnJS(clearTimeoutFastScrollBar)();
+
+        if (translateFastScrollBarXTimer.current != null) {
+          runOnJS(clearTimeoutFastScrollBar)();
+        }
       },
       onActive: (event) => {
         const { yPosition } = calculateYPosition(
@@ -368,7 +420,7 @@ const FastScrollSectionDots = React.forwardRef(
         if (section && sharedActiveSection.value !== section.index) {
           sharedActiveSection.value = section.index;
 
-          runOnJS(updateOnJS)();
+          runOnJS(updateOnJSThrottle)();
         }
       },
       onFinish: (event) => {
@@ -399,7 +451,7 @@ const FastScrollSectionDots = React.forwardRef(
         //   snapPoints,
         // });
 
-        runOnJS(updateOnJS)();
+        runOnJS(updateOnJSThrottle)();
       },
     });
 
@@ -427,6 +479,8 @@ const FastScrollSectionDots = React.forwardRef(
             return;
           }
 
+          enableLogs && console.log('onViewableIndexChanged');
+
           const section = setActiveIndex(index);
           if (section != null) {
             pointStylePositionY.value =
@@ -435,7 +489,7 @@ const FastScrollSectionDots = React.forwardRef(
               dotSize / 2;
 
             sharedActiveSection.value = section.index;
-            updateScrollPosotion(section);
+            updateScrollPosition(section);
           }
         },
       })
@@ -572,7 +626,7 @@ const FastScrollSectionDots = React.forwardRef(
           ref={fastScrollSectionFullListRef}
           sections={sections}
           nearestActiveSection={nearestActiveSection}
-          scrollToIndex={scrollToIndex}
+          scrollToIndex={fastScrollFullListOnScrollToIndex}
           onHide={onHide}
           backgroundColor={scrollBarColor}
         />
