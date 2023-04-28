@@ -61,6 +61,8 @@ const FastScrollSectionFullList = React.forwardRef(
 
     const [activeIndexVisible, setActiveIndexVisible] = useState(false);
 
+    const [activeSection, setActiveSection] = useState(nearestActiveSection);
+
     const activeIndexVisibleCallbacks = useMemo(() => {
       return {
         callbackTimeout: () => {
@@ -89,14 +91,15 @@ const FastScrollSectionFullList = React.forwardRef(
     React.useImperativeHandle(
       forwardedRef,
       (): FastScrollSectionFullListHandle => ({
-        show(activeSection: SectionFullDataV2) {
+        show(section: SectionFullDataV2) {
           setActiveIndexVisible(true);
+          setActiveSection(section);
           startShowActiveIndexVisibleTimer();
           if (flatListRef.current) {
             // TODO: Why is this wrong?
             // @ts-ignore
             flatListRef.current?.scrollToIndex({
-              index: activeSection.sectionIndex,
+              index: section.sectionIndex,
               viewPosition: 0.5,
             });
           }
@@ -143,12 +146,12 @@ const FastScrollSectionFullList = React.forwardRef(
         }: ListRenderItemInfo<SectionFullDataV2>) => (
           <FastScrollSectionFullListItem
             index={index}
-            isActive={item.sectionIndex === nearestActiveSection?.sectionIndex}
+            isActive={item.sectionIndex === activeSection?.sectionIndex}
             item={item}
             scrollToIndex={closeAndScrollToIndex}
           />
         )}
-        extraData={nearestActiveSection?.sectionIndex}
+        extraData={activeSection?.sectionIndex}
       />
     );
   }

@@ -30,7 +30,8 @@ import {
 } from '../utils';
 import { snapPoint } from 'react-native-redash';
 import FastScrollSectionFullList from './FastScrollSectionFullList';
-import { debounce, throttle } from 'throttle-debounce';
+import { debounce } from 'throttle-debounce';
+import { findNearestActiveSection } from '../utils';
 
 export type Props = {
   stickyHeaderIndices?: number[];
@@ -102,14 +103,10 @@ export type Props = {
   onScrollToIndex: (index: number) => void;
 
   /**
-   * miliseconds between each section index change detection
+   * miliseconds to debounce onScrollToIndex
+   * @default 1000
    */
-  throttleIndexChangeDelay: number;
-
-  /**
-   * miliseconds to debvounce onScrollToIndex
-   */
-  debounceOnScrollToIndexDelay: number;
+  debounceOnScrollToIndexDelay?: number;
 };
 
 export type FastScrollSectionDotsHandle = {
@@ -143,20 +140,10 @@ const FastScrollSectionDots = React.forwardRef(
       stickyHeaderIndices,
       stickyHeaderIndicesWithData,
       dotMargin = 12,
-      throttleIndexChangeDelay = 300,
       debounceOnScrollToIndexDelay = 1000,
     }: Props,
     forwardedRef: React.ForwardedRef<FastScrollSectionDotsHandle>
   ) => {
-    const throttleUpdateOnJs = useRef(
-      throttle(
-        throttleIndexChangeDelay,
-        (callback: () => void) => {
-          callback();
-        },
-        { noLeading: false, noTrailing: false }
-      )
-    );
     const containerScrollY = useSharedValue(0);
     const [visible, setVisible] = useState(
       hideFastScrollIndicatorTimeout === 0
@@ -360,14 +347,24 @@ const FastScrollSectionDots = React.forwardRef(
     };
 
     const updateOnJS = () => {
-      enableLogs && console.log('updateOnJS');
+      enableLogs &&
+        console.log(
+          'updateOnJS',
+          sharedActiveSection.value,
+          nearestActiveSection?.index
+        );
       if (sharedActiveSection.value !== nearestActiveSection?.index) {
-        const section = setActiveIndex(sharedActiveSection.value);
+        const section = findNearestActiveSection(
+          sections,
+          sharedActiveSection.value
+        );
+
+        // const section = setActiveIndex(sharedActiveSection.value);
 
         debouncedScrollToIndex.current(sharedActiveSection.value);
         if (section != null) {
           updateScrollPosition(section);
-          fastScrollSectionFullListRef.current?.show(section);
+          showFullList(section);
           enableLogs && console.log('updateOnJS', section);
         }
       }
@@ -384,7 +381,11 @@ const FastScrollSectionDots = React.forwardRef(
       [scrollToIndex]
     );
 
-    const updateOnJSThrottle = () => throttleUpdateOnJs.current(updateOnJS);
+    const showFullList = (section: SectionFullDataV2 | undefined) => {
+      if (section) {
+        fastScrollSectionFullListRef.current?.show(section);
+      }
+    };
 
     const onGestureEvent = useAnimatedGestureHandler<
       PanGestureHandlerGestureEvent,
@@ -402,6 +403,7 @@ const FastScrollSectionDots = React.forwardRef(
         if (translateFastScrollBarXTimer.current != null) {
           runOnJS(clearTimeoutFastScrollBar)();
         }
+        runOnJS(showFullList)(sections[0]);
       },
       onActive: (event) => {
         const { yPosition } = calculateYPosition(
@@ -419,8 +421,7 @@ const FastScrollSectionDots = React.forwardRef(
         );
         if (section && sharedActiveSection.value !== section.index) {
           sharedActiveSection.value = section.index;
-
-          runOnJS(updateOnJSThrottle)();
+          runOnJS(updateOnJS)();
         }
       },
       onFinish: (event) => {
@@ -451,7 +452,7 @@ const FastScrollSectionDots = React.forwardRef(
         //   snapPoints,
         // });
 
-        runOnJS(updateOnJSThrottle)();
+        runOnJS(updateOnJS)();
       },
     });
 
