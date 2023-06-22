@@ -13,7 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { SectionFullDataV2 } from '../../../src/types';
+import type { SectionFullData } from '../../../src/types';
 import CollapsibleScrollableContainer from '../components/CollapsibleScrollableContainer';
 import CategorySectionHeader from './PerformanceSectionHeader';
 import CategoryCell from './PerformanceCell';
@@ -117,7 +117,7 @@ const Performance = () => {
           // @ts-ignore
           // TODO: create a new component for this text and fix the sectionfulldatav2 type
           // eslint-disable-next-line react/no-unstable-nested-components
-          text: ({ section, isActive }: SectionFullDataV2) => {
+          text: ({ section, isActive }: SectionFullData) => {
             const style = StyleSheet.create({
               category1: {
                 color: section.showTextWhenInactive
@@ -161,14 +161,7 @@ const Performance = () => {
             <FlashList
               testID="FlashList"
               ref={flashListRef}
-              estimatedItemSize={98.2}
-              overrideItemLayout={(layout, item: DataItem) => {
-                if (item.type === 'Header') {
-                  layout.size = 32.4;
-                } else {
-                  layout.size = 98.2;
-                }
-              }}
+              estimatedItemSize={29}
               viewabilityConfig={{
                 itemVisiblePercentThreshold: 20,
               }}

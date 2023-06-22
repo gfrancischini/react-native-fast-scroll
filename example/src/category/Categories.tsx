@@ -13,7 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { SectionFullDataV2 } from '../../../src/types';
+import type { SectionFullData } from '../../../src/types';
 import CollapsibleScrollableContainer from '../components/CollapsibleScrollableContainer';
 import CategorySectionHeader from './CategorySectionHeader';
 import CategoryCell from './CategoryCell';
@@ -117,7 +117,7 @@ const Categories = () => {
           // @ts-ignore
           // TODO: create a new component for this text and fix the sectionfulldatav2 type
           // eslint-disable-next-line react/no-unstable-nested-components
-          text: ({ section, isActive }: SectionFullDataV2) => {
+          text: ({ section, isActive }: SectionFullData) => {
             const style = StyleSheet.create({
               category1: {
                 color: section.showTextWhenInactive

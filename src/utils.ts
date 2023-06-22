@@ -6,8 +6,6 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-export const Alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
-
 export const springConfig = {
   stiffness: 1000,
   damping: 500,
@@ -75,69 +73,20 @@ export const useComponentSize = (
   return { size, onLayout };
 };
 
-export const useNearestActiveSession = <T extends { index: number }>(
-  sections: T[]
-) => {
-  const currentIgnoreVisibleItemForRef = useRef<NodeJS.Timeout | null>();
-  const ignoreVisibleItems = useRef<boolean>(false);
-  const activeIndex = useRef<number>(0);
-
-  const [nearestActiveSection, setNearestActiveSection] = useState<T | null>(
-    findNearestActiveSection(sections, activeIndex.current) ?? sections[0]
-  );
-
-  const setActiveIndex = useCallback(
-    (index: number) => {
-      activeIndex.current = index;
-
-      if (!ignoreVisibleItems.current) {
-        const _nearestActiveSection = findNearestActiveSection(
-          sections,
-          activeIndex.current
-        );
-        setNearestActiveSection(_nearestActiveSection);
-        return _nearestActiveSection;
-      }
-      return null;
-    },
-    [sections]
-  );
-
-  const ignoreVisibleItemsFor = useCallback(
-    (goodActiveIndex: number, ms = 1500) => {
-      setNearestActiveSection(
-        findNearestActiveSection(sections, goodActiveIndex)
-      );
-      if (currentIgnoreVisibleItemForRef.current != null) {
-        clearTimeout(currentIgnoreVisibleItemForRef.current);
-      }
-      ignoreVisibleItems.current = true;
-      currentIgnoreVisibleItemForRef.current = setTimeout(() => {
-        currentIgnoreVisibleItemForRef.current = null;
-        ignoreVisibleItems.current = false;
-      }, ms);
-    },
-    [sections]
-  );
-  return {
-    nearestActiveSection,
-    ignoreVisibleItemsFor,
-    setActiveIndex,
-  };
-};
-
 export const useHideFlatBar = ({
   hideFastScrollIndicatorTimeout = 1000,
   barWidth,
 }: {
-  hideFastScrollIndicatorTimeout: number;
+  hideFastScrollIndicatorTimeout?: number;
   barWidth: number;
 }) => {
   const translateFastScrollBarX = useSharedValue(
     hideFastScrollIndicatorTimeout === 0 ? 0 : -barWidth
   );
+  const [visible, setVisible] = useState(false);
+  const visibleRef = useRef(false);
   const translateFastScrollBarXTimer = useRef<NodeJS.Timeout | null>(null);
-
+  const lockedStatus = useRef<boolean>(false);
   const clearTimeoutFastScrollBar = useCallback(() => {
     if (translateFastScrollBarXTimer.current != null) {
       clearTimeout(translateFastScrollBarXTimer.current);
@@ -146,14 +95,17 @@ export const useHideFlatBar = ({
   }, []);
 
   const scheduleHideFastScrollbar = useCallback(() => {
-    if (hideFastScrollIndicatorTimeout === 0) {
+    clearTimeoutFastScrollBar();
+    if (hideFastScrollIndicatorTimeout === 0 || lockedStatus.current === true) {
       // we dont hide the scroll indicator when the value is zero
       return;
     }
-    clearTimeoutFastScrollBar();
+
     translateFastScrollBarXTimer.current = setTimeout(() => {
       translateFastScrollBarX.value = withSpring(-barWidth, springConfig);
       translateFastScrollBarXTimer.current = null;
+      setVisible(false);
+      visibleRef.current = false;
     }, hideFastScrollIndicatorTimeout);
   }, [
     barWidth,
@@ -163,9 +115,27 @@ export const useHideFlatBar = ({
   ]);
 
   const showFastScrollBar = useCallback(() => {
-    translateFastScrollBarX.value = withSpring(0, springConfig);
     scheduleHideFastScrollbar();
+    if (visibleRef.current) {
+      // already visible
+      return;
+    }
+    translateFastScrollBarX.value = withSpring(0, springConfig);
+    setVisible(true);
+    visibleRef.current = true;
   }, [scheduleHideFastScrollbar, translateFastScrollBarX]);
+
+  const lockScrollBarVisibility = useCallback(
+    (_visible: boolean) => {
+      lockedStatus.current = _visible;
+      if (_visible) {
+        showFastScrollBar();
+      } else {
+        scheduleHideFastScrollbar();
+      }
+    },
+    [scheduleHideFastScrollbar, showFastScrollBar]
+  );
 
   useEffect(() => {
     // dealing with prop change. if timeout is 0 means we should always show the fast scroll indicator
@@ -185,6 +155,8 @@ export const useHideFlatBar = ({
     clearTimeoutFastScrollBar,
     scheduleHideFastScrollbar,
     showFastScrollBar,
+    visible,
+    lockScrollBarVisibility,
   };
 };
 

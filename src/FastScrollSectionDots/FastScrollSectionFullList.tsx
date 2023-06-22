@@ -1,4 +1,4 @@
-import type { SectionFullDataV2 } from '../types';
+import type { SectionFullData } from '../types';
 
 import React, { useRef, useState, useMemo, useCallback } from 'react';
 import { ColorValue, ListRenderItemInfo, StyleSheet } from 'react-native';
@@ -11,12 +11,7 @@ type Props = {
   /**
    * Section to render
    */
-  sections: SectionFullDataV2[];
-
-  /**
-   * The current nearest active section
-   */
-  nearestActiveSection: SectionFullDataV2 | null;
+  sections: SectionFullData[];
 
   /**
    * Implement this method to scroll your list to the specific index
@@ -41,27 +36,23 @@ export type FastScrollSectionFullListHandle = {
    * Call this method when index change or when to show this bar
    * @param index The first index
    */
-  show: (activeSection: SectionFullDataV2) => void;
+  show: (activeSection: SectionFullData) => void;
 };
 
 const FastScrollSectionFullList = React.forwardRef(
   (
-    {
-      sections,
-      nearestActiveSection,
-      scrollToIndex,
-      onHide,
-      backgroundColor,
-    }: Props,
+    { sections, scrollToIndex, onHide, backgroundColor }: Props,
     forwardedRef: React.ForwardedRef<FastScrollSectionFullListHandle>
   ) => {
     const flatListRef = useRef<React.ElementRef<
-      typeof Animated.FlatList<SectionFullDataV2>
+      typeof Animated.FlatList<SectionFullData>
     > | null>(null);
 
     const [activeIndexVisible, setActiveIndexVisible] = useState(false);
 
-    const [activeSection, setActiveSection] = useState(nearestActiveSection);
+    const [activeSection, setActiveSection] = useState<SectionFullData | null>(
+      null
+    );
 
     const activeIndexVisibleCallbacks = useMemo(() => {
       return {
@@ -88,20 +79,35 @@ const FastScrollSectionFullList = React.forwardRef(
       [scrollToIndex]
     );
 
+    const rescrollTimeout = useRef<NodeJS.Timeout | null>(null);
+
     React.useImperativeHandle(
       forwardedRef,
       (): FastScrollSectionFullListHandle => ({
-        show(section: SectionFullDataV2) {
+        show(section: SectionFullData) {
           setActiveIndexVisible(true);
           setActiveSection(section);
           startShowActiveIndexVisibleTimer();
           if (flatListRef.current) {
             // TODO: Why is this wrong?
             // @ts-ignore
-            flatListRef.current?.scrollToIndex({
+            flatListRef.current.scrollToIndex({
               index: section.sectionIndex,
               viewPosition: 0.5,
             });
+            if (rescrollTimeout.current) {
+              clearTimeout(rescrollTimeout.current);
+              rescrollTimeout.current = null;
+            }
+            rescrollTimeout.current = setTimeout(() => {
+              if (flatListRef.current) {
+                // @ts-ignore
+                flatListRef.current.scrollToIndex({
+                  index: section.sectionIndex,
+                  viewPosition: 0.5,
+                });
+              }
+            }, 1000);
           }
         },
       })
@@ -140,10 +146,7 @@ const FastScrollSectionFullList = React.forwardRef(
           startShowActiveIndexVisibleTimer();
         }}
         data={sections}
-        renderItem={({
-          item,
-          index,
-        }: ListRenderItemInfo<SectionFullDataV2>) => (
+        renderItem={({ item, index }: ListRenderItemInfo<SectionFullData>) => (
           <FastScrollSectionFullListItem
             index={index}
             isActive={item.sectionIndex === activeSection?.sectionIndex}

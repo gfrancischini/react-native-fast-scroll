@@ -17,8 +17,24 @@ export const data: DataItem[] = [];
 
 let currentCategory1 = 0;
 let currentCategory2 = 0;
-for (let i = 0; i < 500; i++) {
+for (let i = 0; i < 1000; i++) {
   if (i % 6 === 0 && i !== 0) {
+    currentCategory2++;
+    data.push({
+      type: 'Header',
+      category1: `Category ${currentCategory1}`,
+      category2: `Category ${currentCategory2}`,
+      showTextWhenInactive: false,
+    });
+  } else if (i % 14 === 0 && i !== 0) {
+    currentCategory2++;
+    data.push({
+      type: 'Header',
+      category1: `Category ${currentCategory1}`,
+      category2: `Category ${currentCategory2}`,
+      showTextWhenInactive: false,
+    });
+  } else if (i % 16 === 0 && i !== 0) {
     currentCategory2++;
     data.push({
       type: 'Header',
@@ -35,13 +51,12 @@ for (let i = 0; i < 500; i++) {
       category2: `Category ${currentCategory2}`,
       showTextWhenInactive: true,
     });
-  } else {
-    data.push({
-      id: i,
-      title: `Test ${i}`,
-      type: 'Row',
-    });
   }
+  data.push({
+    id: i,
+    title: `Test ${i}`,
+    type: 'Row',
+  });
 }
 
 // console.log('data', data)

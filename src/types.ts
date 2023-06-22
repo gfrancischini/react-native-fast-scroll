@@ -8,35 +8,11 @@ export type ScrollToIndex = (params: {
   viewPosition?: number | undefined;
 }) => void;
 
-export type Section<T> = {
-  data: string | NonNullable<T>;
-  /**
-   * The position of this section on the overall list
-   */
-  index: number;
-  /**
-   * The first position of an item of this section on the overall list
-   */
-  startIndex: number;
-  /**
-   * The last position of an item of this section on the overall list
-   */
-  endIndex: number;
-  /**
-   * The total items that belong to this section
-   */
-  count: number;
-  /**
-   * The position on this section among all the other sections
-   */
-  sectionIndex: number;
-};
-
-export type SectionV2 = {
+export type Section = {
   text:
     | string
     | ((props: {
-        section: SectionFullDataV2;
+        section: SectionFullData;
         isActive: boolean;
       }) => React.ReactElement | JSX.Element);
   /**
@@ -50,7 +26,7 @@ export type SectionV2 = {
   dotColor?: ColorValue;
 };
 
-export type SectionFullDataV2 = SectionV2 & {
+export type SectionFullData = Section & {
   /**
    * The first position of an item of this section on the overall list
    */
@@ -59,4 +35,10 @@ export type SectionFullDataV2 = SectionV2 & {
    * The position on this section among all the other sections
    */
   sectionIndex: number;
+};
+
+export type SectionDataWithDimensions = SectionFullData & {
+  top: number;
+  end: number;
+  center: number;
 };

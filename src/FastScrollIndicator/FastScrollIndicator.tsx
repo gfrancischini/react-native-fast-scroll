@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useMemo,
 } from 'react';
-import { StyleSheet, ColorValue } from 'react-native';
+import { StyleSheet, ColorValue, View } from 'react-native';
 import {
   PanGestureHandler,
   PanGestureHandlerGestureEvent,
@@ -271,20 +271,24 @@ export const FastScrollIndicator = React.forwardRef(
           onGestureEvent={onGestureEvent}
           hitSlop={{ horizontal: 20 }}
         >
-          <Animated.View
-            style={styles.container}
-            onLayout={(event) => (viewLayout.value = event.nativeEvent.layout)}
-          >
-            {visible && (
-              <Animated.View
-                entering={enteringAnimation}
-                exiting={exitingAnimation}
-                style={[styles.scrollBar]}
-              >
-                <Animated.View style={[styles.thumb, pointStyle]} />
-              </Animated.View>
-            )}
-          </Animated.View>
+          <View style={styles.container}>
+            <Animated.View
+              style={styles.container}
+              onLayout={(event) =>
+                (viewLayout.value = event.nativeEvent.layout)
+              }
+            >
+              {visible && (
+                <Animated.View
+                  entering={enteringAnimation}
+                  exiting={exitingAnimation}
+                  style={[styles.scrollBar]}
+                >
+                  <Animated.View style={[styles.thumb, pointStyle]} />
+                </Animated.View>
+              )}
+            </Animated.View>
+          </View>
         </PanGestureHandler>
       </>
     );

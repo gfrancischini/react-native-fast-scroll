@@ -1,4 +1,4 @@
-import type { SectionFullDataV2 } from '../types';
+import type { SectionFullData } from '../types';
 
 import React, { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
@@ -12,7 +12,7 @@ type Props = {
   /**
    * The current section being rendered
    */
-  item: SectionFullDataV2;
+  item: SectionFullData;
 
   /**
    * If this item is the active one
