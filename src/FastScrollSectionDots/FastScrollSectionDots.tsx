@@ -1,13 +1,12 @@
 import type { SectionFullData, Section } from '../types';
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { StyleSheet, ColorValue, View } from 'react-native';
 import Animated, {
   SlideInLeft,
   SlideInRight,
   SlideOutLeft,
   SlideOutRight,
-  useSharedValue,
 } from 'react-native-reanimated';
 import { useHideFlatBar } from '../utils';
 import FastScrollSectionFullList from './FastScrollSectionFullList';
@@ -114,7 +113,7 @@ const FastScrollSectionDots = React.forwardRef(
       onScrollToIndex,
       dotSize = 10,
       thumbScaleOnPress = 1.5,
-      thumbColor = 'green', //'rgba(255, 255, 255, 0.8)',
+      thumbColor = 'rgba(255, 255, 255, 0.8)',
       dotColor = 'white',
       hideFastScrollIndicatorTimeout = 2000,
       scrollBarColor = 'rgba(65, 64, 66, 0.9)',
@@ -136,12 +135,12 @@ const FastScrollSectionDots = React.forwardRef(
     const fastScrollSectionDotsBarRef =
       useRef<React.ElementRef<typeof FastScrollSectionDotsBar>>(null);
 
-    const sections = useSharedValue(
-      createFullSectionData({
+    const sections = useMemo(() => {
+      return createFullSectionData({
         stickyHeaderIndices,
         stickyHeaderIndicesWithData,
-      })
-    );
+      });
+    }, [stickyHeaderIndices, stickyHeaderIndicesWithData]);
 
     React.useImperativeHandle(
       forwardedRef,
@@ -151,7 +150,7 @@ const FastScrollSectionDots = React.forwardRef(
         },
 
         onViewableIndexChanged(index: number) {
-          const section = findNearestActiveSection(sections.value, index);
+          const section = findNearestActiveSection(sections, index);
           if (section && fastScrollSectionDotsBarRef.current) {
             fastScrollSectionDotsBarRef.current?.onSectionChange(section);
           }
@@ -206,7 +205,7 @@ const FastScrollSectionDots = React.forwardRef(
     const fastScrollSectionFullListRef =
       useRef<React.ElementRef<typeof FastScrollSectionFullList>>(null);
 
-    if (sections.value.length === 0) {
+    if (sections.length === 0) {
       return null;
     }
 
@@ -220,7 +219,7 @@ const FastScrollSectionDots = React.forwardRef(
           >
             <FastScrollSectionDotsBar
               ref={fastScrollSectionDotsBarRef}
-              sections={sections.value}
+              sections={sections}
               dotSize={dotSize}
               dotMargin={dotMargin}
               thumbScaleOnPress={thumbScaleOnPress}
@@ -234,7 +233,7 @@ const FastScrollSectionDots = React.forwardRef(
         )}
         <FastScrollSectionFullList
           ref={fastScrollSectionFullListRef}
-          sections={sections.value}
+          sections={sections}
           scrollToIndex={fastScrollFullListOnScrollToIndex}
           onHide={onHide}
           backgroundColor={scrollBarColor}
