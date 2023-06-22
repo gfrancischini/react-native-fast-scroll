@@ -21,6 +21,7 @@ export const ExamplesScreen = () => {
 
   const data: ExampleItem[] = [
     { title: 'Categories', destination: 'Categories' },
+    { title: 'Performance', destination: 'Performance' },
   ];
   return (
     <>

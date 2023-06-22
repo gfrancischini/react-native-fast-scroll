@@ -5,6 +5,7 @@ import { DebugScreen } from './debug';
 import type { RootStackParamList } from './screens';
 import Categories from './category/Categories';
 import { ExamplesScreen } from './ExamplesScreen';
+import Performance from './performance/Performance';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -15,6 +16,7 @@ const NavigationTree = () => {
         <Stack.Group>
           <Stack.Screen name="Examples" component={ExamplesScreen} />
           <Stack.Screen name="Categories" component={Categories} />
+          <Stack.Screen name="Performance" component={Performance} />
         </Stack.Group>
 
         <Stack.Group screenOptions={{ presentation: 'modal' }}>
