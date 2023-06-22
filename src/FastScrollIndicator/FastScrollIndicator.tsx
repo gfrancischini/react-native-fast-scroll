@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useMemo,
 } from 'react';
-import { StyleSheet, ColorValue, View } from 'react-native';
+import { StyleSheet, ColorValue } from 'react-native';
 import {
   PanGestureHandler,
   PanGestureHandlerGestureEvent,
