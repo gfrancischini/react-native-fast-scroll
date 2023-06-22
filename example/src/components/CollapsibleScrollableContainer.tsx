@@ -79,10 +79,8 @@ export const CollapsibleScrollableContainer = React.forwardRef(
     forwardedRef: React.ForwardedRef<ComponentHandle>
   ) => {
     const { onLayout, ...layout } = useLayout();
-    //console.log('layout: ', layout);
 
     const headerHeight = props.headerHeight ?? layout.height ?? 0;
-    //console.log('headerHeight', headerHeight);
     const animatedValue = useSharedValue(0);
     const backUpValue = useSharedValue(0);
 
@@ -131,7 +129,6 @@ export const CollapsibleScrollableContainer = React.forwardRef(
     }, [pinned, headerHeight]);
 
     const handleSnap = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      //console.log('handleSnap');
       const offsetY = event.nativeEvent.contentOffset.y; // - headerHeight;
       //   if (
       //     !(animatedValue.value === 0 || animatedValue.value === -headerHeight)
@@ -143,13 +140,6 @@ export const CollapsibleScrollableContainer = React.forwardRef(
         getCloser(currentAnimatedValue, 0, headerHeight) === headerHeight
           ? offsetY - (headerHeight - animatedValue.value)
           : offsetY + (headerHeight + animatedValue.value);
-      // console.log('animatedValue.value', {
-      //   animated: animatedValue.value,
-      //   offset,
-      //   offsetY,
-      //   currentAnimatedValue,
-      //   getCloser: getCloser(currentAnimatedValue, 0, headerHeight),
-      // });
       scrollToOffset(offset);
       //   }
     };

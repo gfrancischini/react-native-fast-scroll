@@ -71,8 +71,5 @@ export const findSectionOnPosition = (
   const snapPoints = sections.map((section) => section.center);
   const newTranslate = snapPoint(positionY, 0, snapPoints);
   const activeSession = sections.find((s) => s.center === newTranslate);
-  if (activeSession) {
-    // console.log('activeSession', activeSession);
-  }
   return activeSession;
 };

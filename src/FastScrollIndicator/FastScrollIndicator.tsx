@@ -271,24 +271,20 @@ export const FastScrollIndicator = React.forwardRef(
           onGestureEvent={onGestureEvent}
           hitSlop={{ horizontal: 20 }}
         >
-          <View style={styles.container}>
-            <Animated.View
-              style={styles.container}
-              onLayout={(event) =>
-                (viewLayout.value = event.nativeEvent.layout)
-              }
-            >
-              {visible && (
-                <Animated.View
-                  entering={enteringAnimation}
-                  exiting={exitingAnimation}
-                  style={[styles.scrollBar]}
-                >
-                  <Animated.View style={[styles.thumb, pointStyle]} />
-                </Animated.View>
-              )}
-            </Animated.View>
-          </View>
+          <Animated.View
+            style={styles.container}
+            onLayout={(event) => (viewLayout.value = event.nativeEvent.layout)}
+          >
+            {visible && (
+              <Animated.View
+                entering={enteringAnimation}
+                exiting={exitingAnimation}
+                style={[styles.scrollBar]}
+              >
+                <Animated.View style={[styles.thumb, pointStyle]} />
+              </Animated.View>
+            )}
+          </Animated.View>
         </PanGestureHandler>
       </>
     );

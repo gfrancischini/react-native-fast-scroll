@@ -94,8 +94,6 @@ const FastScrollSectionDotsBar = React.forwardRef(
     }: Props,
     forwardedRef: React.ForwardedRef<FastScrollSectionDotsBarHandle>
   ) => {
-    console.log('FastScrollSectionDotsBar', FastScrollSectionDotsBar);
-
     const scale = useSharedValue(1);
     const pointStylePositionY = useSharedValue(0);
     const containerYOnPointStylePositionY = useSharedValue(0);

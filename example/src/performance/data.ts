@@ -58,5 +58,3 @@ for (let i = 0; i < 1000; i++) {
     type: 'Row',
   });
 }
-
-// console.log('data', data)
