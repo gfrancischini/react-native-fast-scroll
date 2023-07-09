@@ -7,13 +7,18 @@ Fast Scroll implementation over Flashlist for react native
 ## Installation
 
 ```sh
-npm install react-native-fast-scroll
+yarn install react-native-fast-scroll
 ```
 
-## Usage
+## Requirements
+
+1. React Native Gesture Handler
+2. React Native Reanimated >= 2
+
+## Usage of the FastScroll Indicator
 
 ```js
-import { multiply } from 'react-native-fast-scroll';
+import { FastScrollIndicator } from 'react-native-fast-scroll';
 
 // ...
 
@@ -49,6 +54,28 @@ const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     ref={fastScrollIndicatorRef}
     thumbColor={'rgba(65, 64, 66, 0.6)'}
     scrollBarColor={'transparent'}
+/>
+```
+
+## Usage of the FastScroll Section Tab
+
+```js
+import { FastScrollSectionTab } from 'react-native-fast-scroll';
+
+// ...
+
+  const onScrollToIndex = (index: number) => {
+    flashListRef.current?.scrollToIndex({
+      index,
+      animated: true,
+    });
+  };
+
+
+<FastScrollSectionTab
+    ref={fastScrollSectionTabRef}
+    onScrollToIndex={onScrollToIndex}
+    stickyHeaderIndicesWithData={stickyHeaderIndicesWithData}
 />
 ```
 

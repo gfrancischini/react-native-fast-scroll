@@ -4,6 +4,7 @@ import { CategoryItemData, data, Header, Product } from './data/categories';
 import {
   FastScrollIndicator,
   FastScrollSectionDots,
+  FastScrollSectionTab,
 } from 'react-native-fast-scroll';
 import { FlashList, ListRenderItemInfo, ViewToken } from '@shopify/flash-list';
 import {
@@ -157,6 +158,10 @@ const Categories = () => {
           scrollToOffset={scrollToOffset}
           pinned={true}
         >
+          <FastScrollSectionTab
+            stickyHeaderIndicesWithData={stickyHeaderIndicesWithData}
+            onScrollToIndex={onScrollToIndex}
+          />
           <View style={styles.listContainer}>
             <FlashList
               testID="FlashList"

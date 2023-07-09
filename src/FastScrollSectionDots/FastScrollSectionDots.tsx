@@ -10,12 +10,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useHideFlatBar } from '../utils';
 import FastScrollSectionFullList from './FastScrollSectionFullList';
-import { findNearestActiveSection } from '../utils';
-import { createFullSectionData } from './utils';
+import { findNearestActiveSection, createFullSectionData } from '../utils';
 import FastScrollSectionDotsBar from './FastScrollSectionDotsBar';
 import { debounce } from 'throttle-debounce';
 
 export type Props = {
+  /**
+   * Plain stick header indicies (same as FlashList)
+   * If you want to have additional data you can use directly `stickyHeaderIndicesWithData`
+   */
   stickyHeaderIndices?: number[];
 
   /**
@@ -63,12 +66,6 @@ export type Props = {
    * @default 'rgba(65, 64, 66, 0.9)'
    */
   scrollBarColor?: ColorValue;
-
-  /**
-   * Implement this method to call the onScroll method of your list
-   * @param offset The percentage offset to scroll to
-   */
-  scrollToOffsetPercentage: (offset: number) => void;
 
   /**
    * Hide the fast scroll indicator after timeout. This value is in ms
@@ -124,8 +121,6 @@ const FastScrollSectionDots = React.forwardRef(
     }: Props,
     forwardedRef: React.ForwardedRef<FastScrollSectionDotsHandle>
   ) => {
-    console.log('FastScrollSectionDots', FastScrollSectionDots);
-
     const { showFastScrollBar, lockScrollBarVisibility, visible } =
       useHideFlatBar({
         barWidth: 100,

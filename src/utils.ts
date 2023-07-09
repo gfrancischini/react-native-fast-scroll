@@ -5,6 +5,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import type { Section, SectionFullData } from './types';
 
 export const springConfig = {
   stiffness: 1000,
@@ -204,4 +205,37 @@ export const useTimer = ({
   }, [scheduleTimer, startTimer, timeout]);
 
   return [startTimer, clearTimer, scheduleTimer] as const;
+};
+
+export const createFullSectionData = ({
+  stickyHeaderIndicesWithData,
+  stickyHeaderIndices,
+}: {
+  stickyHeaderIndicesWithData?: Section[];
+  stickyHeaderIndices?: number[];
+}): SectionFullData[] => {
+  if (stickyHeaderIndicesWithData != null) {
+    return (
+      stickyHeaderIndicesWithData.map((value, index) => {
+        const startIndex = value.index + 1;
+        return {
+          ...value,
+          startIndex: startIndex,
+          sectionIndex: index,
+        };
+      }) ?? []
+    );
+  }
+
+  return stickyHeaderIndices
+    ? stickyHeaderIndices.map((value, index) => {
+        const startIndex = value + 1;
+        return {
+          text: '1',
+          index: value,
+          startIndex: startIndex,
+          sectionIndex: index,
+        };
+      })
+    : [];
 };

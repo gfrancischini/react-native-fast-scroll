@@ -4,6 +4,7 @@ import { DataItem, HeaderItem, RowItem, data } from './data';
 import {
   FastScrollIndicator,
   FastScrollSectionDots,
+  FastScrollSectionTab,
 } from 'react-native-fast-scroll';
 import { FlashList, ListRenderItemInfo, ViewToken } from '@shopify/flash-list';
 import {
@@ -41,6 +42,10 @@ const Performance = () => {
 
   const flashListRef = useRef<React.ElementRef<
     typeof FlashList<DataItem>
+  > | null>(null);
+
+  const fastScrollSectionTabRef = useRef<React.ElementRef<
+    typeof FastScrollSectionTab
   > | null>(null);
 
   const collapsibleScrollableContainerRef =
@@ -96,6 +101,9 @@ const Performance = () => {
   }) => {
     if (info.viewableItems[0]?.index != null) {
       fastScrollSectionDotsRef.current?.onViewableIndexChanged(
+        info.viewableItems[0].index
+      );
+      fastScrollSectionTabRef.current?.onViewableIndexChanged(
         info.viewableItems[0].index
       );
     }
@@ -157,6 +165,18 @@ const Performance = () => {
           scrollToOffset={scrollToOffset}
           pinned={true}
         >
+          <FastScrollSectionTab
+            ref={fastScrollSectionTabRef}
+            stickyHeaderIndicesWithData={stickyHeaderIndicesWithData.map(
+              (i: any) => {
+                return {
+                  ...i,
+                  text: `${i.category1}/${i.category2}`,
+                };
+              }
+            )}
+            onScrollToIndex={onScrollToIndex}
+          />
           <View style={styles.listContainer}>
             <FlashList
               testID="FlashList"
@@ -200,7 +220,6 @@ const Performance = () => {
             >
               <FastScrollSectionDots
                 ref={fastScrollSectionDotsRef}
-                scrollToOffsetPercentage={scrollToOffsetPercentage}
                 side={'left'}
                 // scrollBarColor={'red'}
                 hideFastScrollIndicatorTimeout={2000}

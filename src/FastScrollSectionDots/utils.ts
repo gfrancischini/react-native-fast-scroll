@@ -1,8 +1,4 @@
-import type {
-  SectionFullData,
-  Section,
-  SectionDataWithDimensions,
-} from '../types';
+import type { SectionDataWithDimensions } from '../types';
 import { snapPoint } from 'react-native-redash';
 
 export const calculateYPosition = ({
@@ -28,39 +24,6 @@ export const calculateYPosition = ({
     yPosition: yPosition - dotSize / 2,
     yPercentage,
   };
-};
-
-export const createFullSectionData = ({
-  stickyHeaderIndicesWithData,
-  stickyHeaderIndices,
-}: {
-  stickyHeaderIndicesWithData?: Section[];
-  stickyHeaderIndices?: number[];
-}): SectionFullData[] => {
-  if (stickyHeaderIndicesWithData != null) {
-    return (
-      stickyHeaderIndicesWithData.map((value, index) => {
-        const startIndex = value.index + 1;
-        return {
-          ...value,
-          startIndex: startIndex,
-          sectionIndex: index,
-        };
-      }) ?? []
-    );
-  }
-
-  return stickyHeaderIndices
-    ? stickyHeaderIndices.map((value, index) => {
-        const startIndex = value + 1;
-        return {
-          text: '1',
-          index: value,
-          startIndex: startIndex,
-          sectionIndex: index,
-        };
-      })
-    : [];
 };
 
 export const findSectionOnPosition = (
