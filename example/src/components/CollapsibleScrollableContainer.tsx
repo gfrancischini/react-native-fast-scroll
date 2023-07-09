@@ -172,7 +172,7 @@ export const CollapsibleScrollableContainer = React.forwardRef(
         >
           <HeaderComp />
         </Animated.View>
-        <Animated.View style={[{ flex: 1 }, paddingContentStyle]}>
+        <Animated.View style={[styles.children, paddingContentStyle]}>
           {children}
         </Animated.View>
       </View>
@@ -190,6 +190,9 @@ const styles = StyleSheet.create({
     width: '100%',
     //alignContent: 'c'
     zIndex: 1,
+  },
+  children: {
+    flex: 1,
   },
 });
 

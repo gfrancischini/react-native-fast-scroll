@@ -5,6 +5,7 @@ import {
   FastScrollIndicator,
   FastScrollSectionDots,
   FastScrollSectionTab,
+  SectionFullData,
 } from 'react-native-fast-scroll';
 import { FlashList, ListRenderItemInfo, ViewToken } from '@shopify/flash-list';
 import {
@@ -14,7 +15,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { SectionFullData } from '../../../src/types';
 import CollapsibleScrollableContainer from '../components/CollapsibleScrollableContainer';
 import CategorySectionHeader from './CategorySectionHeader';
 import CategoryCell from './CategoryCell';
@@ -215,7 +215,6 @@ const Categories = () => {
             >
               <FastScrollSectionDots
                 ref={fastScrollSectionDotsRef}
-                scrollToOffsetPercentage={scrollToOffsetPercentage}
                 side={'left'}
                 // scrollBarColor={'red'}
                 hideFastScrollIndicatorTimeout={2000}

@@ -9,10 +9,9 @@ import {
   TextStyle,
 } from 'react-native';
 import FastScrollSectionTabItem from './FastScrollSectionTabItem';
-import type { Section } from '../types';
+import type { Section, SectionFullData } from '../types';
 import { createFullSectionData } from '../utils';
 import { findNearestActiveSection } from '../utils';
-import type { SectionFullData } from 'lib/typescript';
 import type { LayoutMeasurements } from './types';
 import { getScrollAmount } from './utils';
 

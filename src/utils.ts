@@ -48,8 +48,6 @@ export const useComponentSize = (
 
   const onLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      const size = event.nativeEvent.layout;
-      const { width, height, x, y } = size;
       if (ref?.current) {
         ref.current.measure(
           (
@@ -65,7 +63,7 @@ export const useComponentSize = (
         );
         return;
       }
-
+      const { width, height, x, y } = event.nativeEvent.layout;
       setSize({ width, height, x, y });
     },
     [ref]
