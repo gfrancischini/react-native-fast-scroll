@@ -66,8 +66,10 @@ function FastScrollSectionFullListItem({
     scrollToIndex(item.startIndex);
   }, [item.startIndex, scrollToIndex]);
 
+  // Kleber: Using 'onPressIn' because of known issue from react-native flatlist
+  // https://github.com/facebook/react-native/issues/51763
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPressIn={onPress}>
       <Text style={styles.text}>{finalText}</Text>
     </Pressable>
   );
