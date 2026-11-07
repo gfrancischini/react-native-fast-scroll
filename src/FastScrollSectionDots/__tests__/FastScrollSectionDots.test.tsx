@@ -1,12 +1,11 @@
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { State, TapGesture } from 'react-native-gesture-handler';
 import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  userEvent,
-} from '@testing-library/react-native';
+  fireGestureHandler,
+  getByGestureTestId,
+} from 'react-native-gesture-handler/jest-utils';
 import { FastScrollSectionDots, Section } from '../../index';
 import { drag, getPanHandler, touchDown } from '../../__fixtures__/gestures';
 import {
@@ -114,6 +113,39 @@ const layoutDotsBar = (height: number) => {
   expect(measure).toHaveBeenCalledTimes(1);
   measure.mockReset();
 };
+
+/** Each section's position among SECTIONS, which names its row in the section list. */
+const SECTION = { fruits: 0, vegetables: 1, dairy: 2 };
+
+/**
+ * The tap gesture of a row in the open section list. Rows react to an RNGH
+ * tap, not a press, so they are driven with RNGH's jest utils
+ * (docs/unit-testing.md -> Gestures).
+ */
+const getSectionListRowTap = (sectionIndex: number) =>
+  getByGestureTestId(`fast-scroll-section-list-row-${sectionIndex}`);
+
+/** A finger lands on a row and lifts without moving: the tap succeeds. */
+const tapSectionListRow = (sectionIndex: number) =>
+  act(() =>
+    fireGestureHandler<TapGesture>(getSectionListRowTap(sectionIndex), [
+      { state: State.BEGAN },
+      { state: State.ACTIVE },
+      { state: State.END },
+    ])
+  );
+
+/** A finger lands on a row but the tap ends in `finalState` instead of succeeding. */
+const touchSectionListRow = (
+  sectionIndex: number,
+  finalState: typeof State.FAILED | typeof State.CANCELLED
+) =>
+  act(() =>
+    fireGestureHandler<TapGesture>(getSectionListRowTap(sectionIndex), [
+      { state: State.BEGAN },
+      { state: finalState },
+    ])
+  );
 
 /** Nothing is on screen when the container holds neither the dots nor the list. */
 const isAnythingShown = () => {
@@ -258,19 +290,40 @@ describe('FastScrollSectionDots', () => {
     expect(onScrollToIndex.mock.calls).toEqual([[9]]);
   });
 
-  it('scrolls the list to the first item of a section tapped in the section list', async () => {
-    const user = userEvent.setup();
+  it('scrolls the list to the first item of a section tapped in the section list', () => {
     const { onScrollToIndex } = renderDots({
       hideFastScrollIndicatorTimeout: 0,
     });
     drag([FINGER_ON.fruits]);
     act(() => jest.advanceTimersByTime(1000));
 
-    await user.press(screen.getByText('Dairy'));
+    tapSectionListRow(SECTION.dairy);
 
     expect(onScrollToIndex).toHaveBeenLastCalledWith(10);
     expect(screen.queryByText('Dairy')).not.toBeOnTheScreen();
   });
+
+  // A finger that lands on a row to scroll the section list must not pick that
+  // row: the tap fails once the finger moves (or the list takes the touch over).
+  it.each([
+    ['moves away', State.FAILED],
+    ['is taken over by the scrolling list', State.CANCELLED],
+  ])(
+    'keeps the section list open when a touch on a row %s',
+    (_, finalState) => {
+      const { onScrollToIndex } = renderDots({
+        hideFastScrollIndicatorTimeout: 0,
+      });
+      drag([FINGER_ON.fruits]);
+      act(() => jest.advanceTimersByTime(1000));
+      onScrollToIndex.mockClear();
+
+      touchSectionListRow(SECTION.dairy, finalState);
+
+      expect(onScrollToIndex).not.toHaveBeenCalled();
+      expect(screen.getByText('Dairy')).toBeOnTheScreen();
+    }
+  );
 
   // Today a tap within 1 s of the drag scrolls to the tapped section, then the
   // pending debounced call scrolls back to the dragged section's header.

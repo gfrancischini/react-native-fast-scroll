@@ -1,7 +1,11 @@
 import type { SectionFullData } from '../types';
 
 import React, { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+
+/** How far (px) the finger may move before a touch on a row stops being a tap. */
+const TAP_MAX_DISTANCE = 10;
 
 type Props = {
   /**
@@ -66,12 +70,32 @@ function FastScrollSectionFullListItem({
     scrollToIndex(item.startIndex);
   }, [item.startIndex, scrollToIndex]);
 
-  // Kleber: Using 'onPressIn' because of known issue from react-native flatlist
-  // https://github.com/facebook/react-native/issues/51763
+  // A gesture-handler tap instead of a `Pressable`: on newer React Native the
+  // `Pressable`'s `onPress` can stop firing inside a scrolled list
+  // (https://github.com/facebook/react-native/issues/51763), and `onPressIn`
+  // fires on touch down, so touching the list to scroll it picked a row. The
+  // tap fires when the finger lifts and fails once the finger moves or the
+  // list takes the touch over to scroll.
+  const tap = useMemo(
+    () =>
+      Gesture.Tap()
+        .runOnJS(true)
+        .maxDistance(TAP_MAX_DISTANCE)
+        .withTestId(`fast-scroll-section-list-row-${item.sectionIndex}`)
+        .onEnd((_event, success) => {
+          if (success) {
+            onPress();
+          }
+        }),
+    [item.sectionIndex, onPress]
+  );
+
   return (
-    <Pressable onPressIn={onPress}>
-      <Text style={styles.text}>{finalText}</Text>
-    </Pressable>
+    <GestureDetector gesture={tap}>
+      <Text accessibilityRole="button" style={styles.text}>
+        {finalText}
+      </Text>
+    </GestureDetector>
   );
 }
 

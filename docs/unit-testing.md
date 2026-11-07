@@ -259,6 +259,36 @@ finger.lift(); // onFinish
   from its own size (`FastScrollIndicator`), otherwise every percentage is
   computed against a height of 0.
 
+The rows of the dots' section list (`FastScrollSectionFullListItem`) are the
+exception: they use a new-API `Gesture.Tap()` with `.runOnJS(true)`, which RNGH
+calls the same way from `fireGestureHandler` as on a device. Drive them with
+RNGH's jest utils and the gesture's test ID
+(`fast-scroll-section-list-row-<sectionIndex>`), not `userEvent.press` - the
+row has no press handler for it to find:
+
+```tsx
+import { State, TapGesture } from 'react-native-gesture-handler';
+import {
+  fireGestureHandler,
+  getByGestureTestId,
+} from 'react-native-gesture-handler/jest-utils';
+
+const rowTap = getByGestureTestId('fast-scroll-section-list-row-2');
+act(() =>
+  fireGestureHandler<TapGesture>(rowTap, [
+    { state: State.BEGAN },
+    { state: State.ACTIVE },
+    { state: State.END }, // a tap: the row scrolls the list
+  ])
+);
+act(() =>
+  fireGestureHandler<TapGesture>(rowTap, [
+    { state: State.BEGAN },
+    { state: State.FAILED }, // the finger moved: not a tap
+  ])
+);
+```
+
 ### Mocks the RN preset already provides
 
 The `react-native` preset mocks native components. Two things that matter here:
@@ -364,8 +394,8 @@ registered in `jest/setupAfterEnv.js` - no import needed in the test, and no
 - Prefer `userEvent` over `fireEvent` for presses and typing - it fires the
   realistic sequence of events a real user triggers. `userEvent.setup()` returns
   the instance; its methods are async, so `await` every one. `fireEvent` remains
-  the tool for events `userEvent` does not model: `layout`, scroll events, and
-  `pressIn` on its own (`FastScrollSectionFullListItem` reacts to `onPressIn`).
+  the tool for events `userEvent` does not model: `layout` and scroll events.
+  Gesture-handler gestures are neither: see *Gestures* below.
 - To wait for something to appear, use `await screen.findByText(...)` (a `find*`
   query), never `waitFor` + `getBy*`.
 - `waitFor` rules: assertions only inside the callback (it may run many times),
