@@ -42,6 +42,35 @@ The app imports `SectionFullData` from the deep path
 `react-native-fast-scroll/src/types`, so moving or renaming `src/types.ts` (or
 that type) breaks it, even though the type is also exported from the root.
 
+**Production runs a patched 0.3.2.** The app applies a `patch-package` patch to
+the library's `src/` (Metro resolves the `react-native` field, `src/index`), so
+what production runs differs from this repo in two files:
+
+- `FastScrollSectionDotsBar`: the pan is `Gesture.Pan()` inside a
+  `GestureDetector` (`onBegin` / `onChange` / `onFinalize`, `hitSlop`
+  `{ horizontal: 20 }`) instead of `useAnimatedGestureHandler` +
+  `PanGestureHandler`. The handler bodies are unchanged, but `onBegin` runs on
+  touch down and `onFinalize` also runs when the gesture fails or is cancelled,
+  so a tap with no movement still snaps the thumb and re-enables list scroll
+  events.
+- `FastScrollSectionFullListItem`: `Pressable` from
+  `react-native-gesture-handler` with `onPress`, instead of the RN `Pressable`
+  with `onPressIn`. Both steps work around
+  [react-native#51763](https://github.com/facebook/react-native/issues/51763):
+  the RN `Pressable`'s `onPress` stopped firing on section items after the list
+  scrolled. 0.3.2 switched to `onPressIn`, which fires on touch down, so
+  touching the list to scroll it selected a section. The patch restores
+  `onPress` through the gesture-handler `Pressable`, which that bug does not
+  affect. Going back to RN `Pressable` + `onPress` brings the original bug
+  back, and RN `Pressable` + `onPressIn` brings back the early selection.
+
+`FastScrollIndicator` is not patched. Any change to those two files breaks the
+patch on the next upgrade, so either keep them patch-compatible or absorb the
+patch upstream so the app can drop it. Absorbing it has to respect the
+minimum peers: the `Gesture` API exists in Gesture Handler 2.8, but its
+`Pressable` does not (it needs a newer Gesture Handler), and the dots tests
+drive the old `PanGestureHandler` (see `src/__fixtures__/gestures.ts`).
+
 ## Testing
 
 Read [docs/unit-testing.md](docs/unit-testing.md) before writing or changing a
@@ -70,7 +99,8 @@ by typecheck and lint too.
   develops against (`react-native-reanimated` 2.12, `react-native-gesture-handler`
   2.8, the dev dependencies) and on the versions production runs
   (see above). That is why it still uses `useAnimatedGestureHandler` with the
-  old `PanGestureHandler`, which is deprecated in Reanimated 3 but still works there.
+  old `PanGestureHandler`, which is deprecated in Reanimated 3 but still works there
+  (production patches the dots bar off it, see above).
   Only use APIs that exist on both sides.
 - **Worklets.** Helpers called from gesture handlers or animated styles carry a
   `'worklet'` directive (`src/FastScrollSectionDots/utils.ts`) and cross back to
