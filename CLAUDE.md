@@ -63,13 +63,18 @@ what production runs differs from this repo in two files:
   `onPress` through the gesture-handler `Pressable`, which that bug does not
   affect. Going back to RN `Pressable` + `onPress` brings the original bug
   back, and RN `Pressable` + `onPressIn` brings back the early selection.
+  **Absorbed upstream after 0.3.2:** the row now uses a gesture-handler
+  `Gesture.Tap()` (fires on lift, fails when the finger moves or the list
+  scrolls), because the gesture-handler `Pressable` does not exist on the
+  minimum peer (Gesture Handler 2.8). The app should drop this file from its
+  patch when it upgrades; the patch no longer applies to it.
 
-`FastScrollIndicator` is not patched. Any change to those two files breaks the
-patch on the next upgrade, so either keep them patch-compatible or absorb the
-patch upstream so the app can drop it. Absorbing it has to respect the
-minimum peers: the `Gesture` API exists in Gesture Handler 2.8, but its
-`Pressable` does not (it needs a newer Gesture Handler), and the dots tests
-drive the old `PanGestureHandler` (see `src/__fixtures__/gestures.ts`).
+`FastScrollIndicator` is not patched. Any change to `FastScrollSectionDotsBar`
+breaks the remaining patch on the next upgrade, so either keep it
+patch-compatible or absorb the patch upstream so the app can drop it.
+Absorbing it has to respect the minimum peers: the `Gesture` API exists in
+Gesture Handler 2.8, and the dots tests drive the old `PanGestureHandler`
+(see `src/__fixtures__/gestures.ts`).
 
 ## Testing
 
