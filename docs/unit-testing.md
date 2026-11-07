@@ -164,10 +164,19 @@ mock: most of what a test needs is already there.
 
 | File | What it does |
 | --- | --- |
-| `jest.config.js` | `react-native` preset, `clearMocks: true`, and `transformIgnorePatterns` that let Babel compile `react-native-reanimated`, `react-native-gesture-handler`, `react-native-redash` and `@shopify/flash-list`. |
+| `jest.config.js` | `@testing-library/react-native` preset (see below), `clearMocks: true`, and `transformIgnorePatterns` that let Babel compile `react-native-reanimated`, `react-native-gesture-handler`, `react-native-redash` and `@shopify/flash-list`. |
+| `babel.config.js` | Adds `react-native-reanimated/plugin` in the `test` env only (see [Reanimated runs for real](#reanimated-runs-for-real)). The published `lib/` build does not use it. |
 | `jest/environment.js` | Node test environment that makes `global.performance` writable. RN 0.70's `jest/setup.js` assigns it, which throws on Node >= 18. Without this file the whole suite fails on a modern local Node, even though CI (Node 16 via `.nvmrc`) passes. |
 | `jest/setup.js` | Runs before the framework: loads `react-native-gesture-handler/jestSetup`, mocks `NativeAnimatedHelper`, and defines `global.ReanimatedDataMock` (see below). |
-| `jest/setupAfterEnv.js` | Runs after the framework: loads the `setimmediate` polyfill Reanimated needs and registers the RNTL matchers (`@testing-library/react-native/extend-expect`). |
+| `jest/setupAfterEnv.js` | Runs after the framework: loads the `setimmediate` polyfill Reanimated needs, registers the RNTL matchers (`@testing-library/react-native/extend-expect`), and adds the global `afterEach` that ends fake timers (see [Determinism](#determinism)). |
+| `jest/matchers.d.ts` | Makes the RNTL matcher types visible to `yarn typecheck`; the runtime registration above is invisible to `tsc`. |
+
+**Why RNTL's preset and not `react-native`'s.** RN 0.70's Jest setup replaces
+`global.Promise` with a polyfill that resolves through `setImmediate`. Under
+`jest.useFakeTimers()` that polyfill never resolves, so every `await
+user.press(...)` hangs until the test times out. The
+`@testing-library/react-native` preset is the `react-native` preset plus a step
+that restores the native `Promise`. Keep it until RN is upgraded to 0.71+.
 
 ### Reanimated runs for real
 
@@ -178,47 +187,66 @@ and the `entering`/`exiting` layout animations all execute. `runOnJS(fn)` calls
 
 Its frame clock reads `global.ReanimatedDataMock.now()`, which `jest/setup.js`
 backs with `Date.now()`. Consequence: animations follow Jest's clock - with fake
-timers enabled, `jest.advanceTimersByTime` advances them too.
+timers enabled, `jest.advanceTimersByTime` advances them too. Animated styles
+are applied on the next frame, so a test must advance the clock before reading
+one.
+
+Apps compile this library's `src/` with Reanimated's Babel plugin, which records
+the shared values each worklet reads. `babel.config.js` enables the plugin for
+tests so they match: without it, an animated style is computed on its first
+frame and never again.
 
 Do **not** call Reanimated's `setUpTests()` helper: in 2.12 it calls
 `require('expect').extend`, which does not exist on Jest >= 28, so the
-`toHaveAnimatedStyle` matcher is not available. Assert on the user-visible
-outcome (what is rendered, which callback fired) instead of on animated style
-values.
+`toHaveAnimatedStyle` matcher is not available. The one animated value a user
+reads is where a scroll bar's thumb sits; read it with `getThumbPosition()` from
+`src/__fixtures__/thumb.ts`, which advances one frame and returns the thumb's
+live `translateY`:
+
+```tsx
+act(() => ref.current?.onViewableIndexChanged(7));
+
+expect(getThumbPosition()).toBe(39); // the middle of the second dot
+```
+
+Everything else animated (scale, slide-in, springs) is decoration: assert on
+what is rendered and which callbacks fired.
 
 ### Gestures
 
 `react-native-gesture-handler` is set up with its official `jestSetup`. Drags
 on the old-API `PanGestureHandler` used by `FastScrollIndicator` and
-`FastScrollSectionDotsBar` are driven with `fireGestureHandler` from
-`react-native-gesture-handler/jest-utils`. Under Jest each handler's child
-receives a `handlerType` prop, which is how a test finds it (the components
-expose no `testID` for it):
+`FastScrollSectionDotsBar` go through the helpers in
+`src/__fixtures__/gestures.ts` - use them instead of calling
+`fireGestureHandler` directly:
 
 ```tsx
-import { State } from 'react-native-gesture-handler';
-import { fireGestureHandler } from 'react-native-gesture-handler/jest-utils';
+import { dragThroughPositions, layoutPanArea } from '../../__fixtures__/gestures';
 
-const getPanHandler = () =>
-  screen.UNSAFE_getAllByProps({ handlerType: 'PanGestureHandler' })[0]!;
+render(<FastScrollIndicator thumbSize={THUMB} scrollToOffsetPercentage={onScroll} />);
+layoutPanArea(550);
 
-act(() =>
-  fireGestureHandler(getPanHandler(), [
-    { state: State.BEGAN, y: 25 },
-    { state: State.ACTIVE, y: 275 },
-    { state: State.END, y: 275 },
-  ])
-);
+dragThroughPositions([25, 275, 525]);
 
-expect(scrollToOffsetPercentage).toHaveBeenLastCalledWith(0.5);
+expect(onScroll.mock.calls).toEqual([[0], [0.5], [1]]);
 ```
 
-`UNSAFE_*` queries are banned everywhere else; this helper is the one exception,
-and it must live in a single named function so it is easy to replace.
-
-Gesture coordinates are relative to a laid-out view. Fire a `layout` event on
-the view with the size the test assumes before dragging, otherwise every
-percentage is computed against a height of 0.
+- **Finding the handler.** Under Jest each handler's child receives a
+  `handlerType` prop, and the components expose no `testID`, so `getPanHandler`
+  uses `UNSAFE_getAllByProps`. `UNSAFE_*` queries are banned everywhere else;
+  this helper is the one exception.
+- **Only moves arrive.** `fireGestureHandler` sends state changes (`BEGAN`, the
+  first `ACTIVE`, `END`) as `onGestureHandlerStateChange`, which RNGH forwards to
+  `onHandlerStateChange` - a prop these components do not set. Only the
+  repeated `ACTIVE` events reach `onGestureEvent`. So under Jest a Reanimated
+  `useAnimatedGestureHandler` runs `onActive` once per position and **never runs
+  `onStart` or `onFinish`**. `dragThroughPositions` sends one move per `y` you
+  pass; behavior that lives in `onStart`/`onFinish` (thumb scale, hiding the
+  indicator after the finger lifts) cannot be tested today.
+- **Lay out first.** Gesture coordinates are relative to a laid-out view. Call
+  `layoutPanArea(height)` before dragging when the component computes positions
+  from its own size (`FastScrollIndicator`), otherwise every percentage is
+  computed against a height of 0.
 
 ### Mocks the RN preset already provides
 
@@ -228,10 +256,17 @@ The `react-native` preset mocks native components. Two things that matter here:
   `jest.fn()`s **shared by every `ScrollView` in every test**. `clearMocks`
   resets their calls between tests; within one test, assert relative to what
   the test itself did (`toHaveBeenCalledTimes` after the test's own actions).
-  Reach it with `screen.UNSAFE_getByType(ScrollView).instance.scrollTo` - the
-  same documented exception as the gesture helper.
+  Reach the ScrollView with `screen.UNSAFE_getByType(ScrollView)` - the same
+  documented exception as the gesture helper - for its `instance.scrollTo` or
+  to fire `layout` on it. The tab bar and the dots' section list are the only
+  ScrollViews in their components.
 - Nothing is ever laid out: every `onLayout` is silent until a test fires a
-  `layout` event, and `FlatList` renders only its initial batch.
+  `layout` event, and `FlatList` renders only its initial batch. When a
+  behavior depends on sizes (centering the active tab, centering the active row
+  of the section list), lay the component out in the test, as
+  `layoutTabBar` and `layoutSectionList` do in the component suites. A
+  `layout` event fired on a label bubbles to the nearest view that measures
+  itself (a tab, a list row).
 
 ## Placement, naming, running
 
@@ -332,7 +367,8 @@ registered in `jest/setupAfterEnv.js` - no import needed in the test, and no
   [Test environment](#test-environment) (gesture handler, `ScrollView` instance).
 - When a component renders no text at all (the dots bar, the indicator thumb),
   assert on the observable consequence - a callback fired, a sibling label
-  appeared, the tree is empty - rather than on component types or style objects.
+  appeared, the tree is empty, the thumb moved (`getThumbPosition()`) - rather
+  than on component types or style objects.
 
 Version note: RNTL 13 requires React >= 18.2 and RN >= 0.71, so it is out until
 the dev dependencies move off React 18.1.0 / RN 0.70.6. Examples online written
@@ -361,9 +397,15 @@ queries, `@testing-library/jest-native`) do not match this setup.
 ## Determinism
 
 - **Fake timers are not enabled globally.** A suite that needs them calls
-  `jest.useFakeTimers()` in `beforeEach` and `jest.useRealTimers()` in
-  `afterEach`. Anything involving `hideFastScrollIndicatorTimeout`, the full
-  list's 3 s auto-hide, or `debounceOnScrollToIndexDelay` needs them.
+  `jest.useFakeTimers()` in `beforeEach`; the global `afterEach` in
+  `jest/setupAfterEnv.js` turns them off. Anything involving
+  `hideFastScrollIndicatorTimeout`, the full list's 3 s auto-hide,
+  `debounceOnScrollToIndexDelay`, or the thumb's position needs them.
+- That global hook first runs every pending timer, then restores real timers.
+  Reanimated requests one frame at a time and waits for it; a frame still
+  pending when the timers are swapped is lost, and every animated style freezes
+  for the rest of the file. A suite's own `afterEach` runs *before* the global
+  one, so leave restoring real timers to the global hook.
 - Advance explicitly and inside `act`:
   `act(() => jest.advanceTimersByTime(ms))`. Jest 28 has no
   `advanceTimersByTimeAsync`.
@@ -392,16 +434,19 @@ internals.
 Open items in the testing setup, so a test is not written around them by
 accident:
 
-- Driving the old-API `PanGestureHandler` through `fireGestureHandler` +
-  `useAnimatedGestureHandler` under Reanimated's JS implementation is not yet
-  proven by a passing suite in this repo. The first gesture test confirms it;
-  update [Gestures](#gestures) with what it finds.
+- Gesture `onStart` / `onFinish` never run under Jest (see
+  [Gestures](#gestures)): what happens when a finger lands on or lifts off a
+  scroll bar is untested. Passing the same handler to `onHandlerStateChange`
+  in the components would close this gap.
 - `toHaveAnimatedStyle` is unavailable (Reanimated 2.12 + Jest 28
-  incompatibility), so animated styles such as the thumb's `translateY` cannot
-  be asserted directly.
+  incompatibility). `getThumbPosition()` covers the thumb; no other animated
+  style is read.
 - The scroll bars, the dots and the thumb render no text and expose no
   accessibility role or label, so tests cannot query them the way a user (or a
-  screen reader) would perceive them. Adding accessibility props to the library
-  would fix both the tests and real accessibility.
+  screen reader) would perceive them. `getThumbPosition()` finds the thumb as
+  the only absolutely positioned view in the pan area. Adding accessibility
+  props to the library would fix both the tests and real accessibility.
 - No layout engine: positions that depend on `onLayout` / `measure` only exist
-  when the test fires the event itself.
+  when the test fires the event itself. `measure` (used by the dots bar through
+  `useComponentSize`) never calls back, so the dots bar's own scrolling when
+  there are more dots than fit is untested.
