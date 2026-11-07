@@ -3,7 +3,7 @@ import { StatusBar, StyleSheet, FlatList, Text, Pressable } from 'react-native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
 
-import { DebugButton } from './debug';
+import { DebugButton } from './Debug';
 import type { RootStackParamList } from './screens';
 
 interface ExampleItem {

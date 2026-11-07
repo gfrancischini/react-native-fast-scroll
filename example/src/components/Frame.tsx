@@ -1,7 +1,7 @@
 import * as React from 'react';
 
 import { StyleSheet, View, Text } from 'react-native';
-import { DebugContext } from '../debug';
+import { DebugContext } from '../Debug';
 
 function Frame({ children }: React.PropsWithChildren) {
   const debugContext = React.useContext(DebugContext);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { DebugScreen } from './debug';
+import { DebugScreen } from './Debug';
 import type { RootStackParamList } from './screens';
 import Categories from './category/Categories';
 import { ExamplesScreen } from './ExamplesScreen';
