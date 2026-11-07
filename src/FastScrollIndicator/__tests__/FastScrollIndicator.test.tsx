@@ -1,11 +1,8 @@
 import React from 'react';
 import { act, render, screen } from '@testing-library/react-native';
 import { FastScrollIndicator } from '../../index';
-import {
-  dragThroughPositions,
-  layoutPanArea,
-} from '../../__fixtures__/gestures';
-import { getThumbPosition } from '../../__fixtures__/thumb';
+import { drag, layoutPanArea, touchDown } from '../../__fixtures__/gestures';
+import { getThumbPosition } from '../../__fixtures__/positions';
 
 // A 50px thumb on a 550px track: its center travels from y=25 to y=525.
 const THUMB = { width: 7, height: 50, borderRadius: 7 };
@@ -114,13 +111,45 @@ describe('FastScrollIndicator', () => {
     expect(getThumbPosition()).toBe(500);
   });
 
-  it('ignores the list while the thumb is dragged, so the thumb stays under the finger', () => {
+  it('jumps the list to the point of the track the finger touches', () => {
+    const { scrollToOffsetPercentage } = renderIndicator();
+
+    const finger = touchDown(275);
+    expect(scrollToOffsetPercentage.mock.calls).toEqual([[0.5]]);
+
+    finger.lift();
+    expect(scrollToOffsetPercentage).toHaveBeenLastCalledWith(0.5);
+  });
+
+  it('scrolls the list to the share of the track the thumb is dragged to', () => {
+    const { scrollToOffsetPercentage } = renderIndicator();
+    const finger = touchDown(25);
+    expect(scrollToOffsetPercentage).toHaveBeenLastCalledWith(0);
+
+    finger.moveTo(275);
+    expect(scrollToOffsetPercentage).toHaveBeenLastCalledWith(0.5);
+
+    finger.moveTo(525);
+    expect(scrollToOffsetPercentage).toHaveBeenLastCalledWith(1);
+  });
+
+  it('clamps a drag beyond either end of the track to the start or the end of the list', () => {
+    const { scrollToOffsetPercentage } = renderIndicator();
+
+    const finger = touchDown(-100);
+    expect(scrollToOffsetPercentage).toHaveBeenLastCalledWith(0);
+
+    finger.moveTo(900);
+    expect(scrollToOffsetPercentage).toHaveBeenLastCalledWith(1);
+  });
+
+  it('keeps the thumb under the finger and the bar on screen while the finger is down', () => {
     const { scrollListTo } = renderIndicator({
       hideFastScrollIndicatorTimeout: 1000,
     });
     scrollListTo(0.1);
 
-    dragThroughPositions([275]);
+    touchDown(275);
     // The list scrolls in response and keeps reporting its (lagging) offset.
     scrollListTo(0.2);
     act(() => jest.advanceTimersByTime(5000));
@@ -129,23 +158,35 @@ describe('FastScrollIndicator', () => {
     expect(isScrollBarShown()).toBe(true);
   });
 
-  it('scrolls the list to the share of the track the thumb is dragged to', () => {
-    const { scrollToOffsetPercentage } = renderIndicator({
-      hideFastScrollIndicatorTimeout: 0,
+  it('hides the bar once the timeout elapses after the finger lifts', () => {
+    const { scrollListTo } = renderIndicator({
+      hideFastScrollIndicatorTimeout: 1000,
     });
+    scrollListTo(0.1);
+    const finger = touchDown(275);
+    finger.moveTo(400);
+    act(() => jest.advanceTimersByTime(5000));
 
-    dragThroughPositions([25, 275, 525]);
+    finger.lift();
 
-    expect(scrollToOffsetPercentage.mock.calls).toEqual([[0], [0.5], [1]]);
+    act(() => jest.advanceTimersByTime(999));
+    expect(isScrollBarShown()).toBe(true);
+    act(() => jest.advanceTimersByTime(1));
+    expect(isScrollBarShown()).toBe(false);
   });
 
-  it('clamps a drag beyond either end of the track to the start or the end of the list', () => {
-    const { scrollToOffsetPercentage } = renderIndicator({
-      hideFastScrollIndicatorTimeout: 0,
-    });
+  it('follows the list again once the finger lifts', () => {
+    const { scrollListTo } = renderIndicator();
+    scrollListTo(0.1);
+    drag([275, 400]);
 
-    dragThroughPositions([-100, 900]);
+    scrollListTo(0.2);
 
-    expect(scrollToOffsetPercentage.mock.calls).toEqual([[0], [1]]);
+    expect(getThumbPosition()).toBe(100);
   });
+
+  // Today the hidden track still takes the drag and scrolls the list, but the
+  // bar stays hidden for the whole drag: the list's own scroll events, which
+  // would show it, are ignored while the finger is down.
+  it.todo('shows the bar when a finger drags the hidden track');
 });

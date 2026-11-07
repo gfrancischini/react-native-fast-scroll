@@ -1,6 +1,5 @@
 import { act, fireEvent, screen } from '@testing-library/react-native';
-import { PanGestureHandler, State } from 'react-native-gesture-handler';
-import { fireGestureHandler } from 'react-native-gesture-handler/jest-utils';
+import { State } from 'react-native-gesture-handler';
 
 /**
  * The view wrapped by the component's `PanGestureHandler`. Under Jest the
@@ -26,23 +25,68 @@ export const layoutPanArea = (height: number, width = 20) => {
 };
 
 /**
- * Drags a finger through each `y` (relative to the gesture area) in order.
+ * Sends one pan event the way RNGH delivers it on a device to a Reanimated
+ * `useAnimatedGestureHandler`: state changes and moves alike go through
+ * `onGestureHandlerEvent`, the channel the worklet is registered on.
  *
- * Under Jest only the `ACTIVE` move events reach a Reanimated
- * `useAnimatedGestureHandler`; the state changes (`BEGAN`, the first `ACTIVE`,
- * `END`) are routed to `onHandlerStateChange`, which these components do not
- * set. So the component sees one `onActive` per `y` and never `onStart` /
- * `onFinish`.
+ * RNGH's own `fireGestureHandler` sends state changes to
+ * `onHandlerStateChange` instead, which these components do not set, so with
+ * it `onStart` / `onFinish` never run.
  */
-export const dragThroughPositions = (ys: [number, ...number[]]) => {
-  const [first] = ys;
-  const last = ys[ys.length - 1];
-  act(() =>
-    fireGestureHandler<PanGestureHandler>(getPanHandler(), [
-      { state: State.BEGAN, y: first },
-      { state: State.ACTIVE, y: first },
-      ...ys.map((y) => ({ state: State.ACTIVE, y })),
-      { state: State.END, y: last },
-    ])
-  );
+const sendPanEvent = (event: { state: State; oldState?: State; y: number }) => {
+  const handler = getPanHandler();
+  act(() => {
+    fireEvent(handler, 'onGestureHandlerEvent', {
+      nativeEvent: {
+        handlerTag: handler.props.handlerTag,
+        numberOfPointers: 1,
+        x: 0,
+        ...event,
+      },
+    });
+  });
+};
+
+export type Finger = {
+  /** Moves the finger to `y`, activating the pan on the first move. */
+  moveTo: (y: number) => void;
+  /** Lifts the finger where it is: the pan ends, or fails if it never moved. */
+  lift: () => void;
+};
+
+/**
+ * Puts a finger on the gesture area at `y` (relative to the area) and returns
+ * it, so a test can move it, hold it, and lift it.
+ */
+export const touchDown = (y: number): Finger => {
+  let state: State = State.BEGAN;
+  let lastY = y;
+  sendPanEvent({ state: State.BEGAN, oldState: State.UNDETERMINED, y });
+
+  return {
+    moveTo(nextY) {
+      sendPanEvent(
+        state === State.BEGAN
+          ? { state: State.ACTIVE, oldState: State.BEGAN, y: nextY }
+          : { state: State.ACTIVE, y: nextY }
+      );
+      state = State.ACTIVE;
+      lastY = nextY;
+    },
+    lift() {
+      sendPanEvent(
+        state === State.ACTIVE
+          ? { state: State.END, oldState: State.ACTIVE, y: lastY }
+          : { state: State.FAILED, oldState: State.BEGAN, y: lastY }
+      );
+    },
+  };
+};
+
+/** A whole drag: touch down at the first `y`, move through the rest, lift. */
+export const drag = (ys: [number, ...number[]]) => {
+  const [first, ...rest] = ys;
+  const finger = touchDown(first);
+  rest.forEach((y) => finger.moveTo(y));
+  finger.lift();
 };
