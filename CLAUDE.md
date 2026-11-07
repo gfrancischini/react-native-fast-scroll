@@ -5,6 +5,43 @@ fast-scroll components for long sectioned lists, typically a FlashList:
 `FastScrollIndicator`, `FastScrollSectionDots`, `FastScrollSectionTab`. The
 public API is whatever `src/index.tsx` exports.
 
+## Production usage
+
+The main consumer is a production app that runs React 18.3, RN 0.77,
+Reanimated 3.17, Gesture Handler 2.24 and FlashList v2, on library version
+0.3.2. A change that breaks the scenarios below is a regression even if this
+repo's tests pass.
+
+**Sectioned catalog list** - the main scenario. One FlashList of product rows
+grouped by category, with both components layered over it:
+
+- **Sections.** One `Section` per category, `index` = the category's header
+  row. Each section object carries extra app-specific fields the library does
+  not declare, and `text` is a component that reads them from the `section`
+  prop. So `createFullSectionData` must keep spreading unknown fields through,
+  and `text` as a component receiving `{ section, isActive }` must keep working.
+  Per-section `dotColor` is used to highlight one section.
+- **`FastScrollSectionDots`** on the left. Its `onScrollToIndex` calls FlashList
+  `scrollToIndex` on the header `index` with a `viewOffset` for a collapsible
+  header above the list, then retries once. The dots always render.
+- **`FastScrollIndicator`** on the right, behind a runtime feature flag (on by
+  default). `scrollToOffsetPercentage` maps 0..1 to FlashList `scrollToOffset`
+  over the scrollable height (content height minus viewport height).
+- **Handle calls.** Every `onScroll` frame calls `onScrollToOffsetPercentage` on
+  both components, so that path has to stay cheap. `onViewableIndexChanged` is
+  called with the first viewable index, debounced 500 ms by the app.
+- Both use `hideFastScrollIndicatorTimeout` 2000. Sections can be collapsed,
+  which keeps header indices stable but hides the rows between them.
+
+**Generic list wrapper** - a shared FlashList wrapper renders a right-side
+`FastScrollIndicator` over every list in the app, wired the same way.
+
+`FastScrollSectionTab` is not used in production.
+
+The app imports `SectionFullData` from the deep path
+`react-native-fast-scroll/src/types`, so moving or renaming `src/types.ts` (or
+that type) breaks it, even though the type is also exported from the root.
+
 ## Testing
 
 Read [docs/unit-testing.md](docs/unit-testing.md) before writing or changing a
@@ -29,10 +66,12 @@ by typecheck and lint too.
 - **Imperative handles are the integration point.** Apps call
   `onViewableIndexChanged` / `onScrollToOffsetPercentage` on a ref from their
   list's callbacks. Treat handle names and signatures as public API.
-- **Minimum peer versions are the target.** Code must run on
-  `react-native-reanimated` 2.12 and `react-native-gesture-handler` 2.8 (the
-  dev dependencies), which is why it uses `useAnimatedGestureHandler` with the
-  old `PanGestureHandler`. Use APIs available in those versions.
+- **Two version targets.** Code must run on the minimum peers this repo
+  develops against (`react-native-reanimated` 2.12, `react-native-gesture-handler`
+  2.8, the dev dependencies) and on the versions production runs
+  (see above). That is why it still uses `useAnimatedGestureHandler` with the
+  old `PanGestureHandler`, which is deprecated in Reanimated 3 but still works there.
+  Only use APIs that exist on both sides.
 - **Worklets.** Helpers called from gesture handlers or animated styles carry a
   `'worklet'` directive (`src/FastScrollSectionDots/utils.ts`) and cross back to
   JS with `runOnJS`. Keep new UI-thread helpers pure and marked the same way.
