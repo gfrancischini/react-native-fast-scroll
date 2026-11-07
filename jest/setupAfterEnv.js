@@ -5,7 +5,7 @@
 // under Jest. Its `setUpTests()` helper is NOT used because in 2.12 it calls
 // `require('expect').extend`, which does not exist on Jest >= 28. The only other
 // thing it does is load this polyfill. To read an animated style, see
-// `src/__fixtures__/thumb.ts`.
+// `src/__fixtures__/positions.ts`.
 require('setimmediate');
 
 // Adds React Native Testing Library matchers (toBeVisible, toHaveTextContent, ...).

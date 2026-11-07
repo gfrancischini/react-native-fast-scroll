@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import {
   act,
   fireEvent,
@@ -8,8 +8,11 @@ import {
   userEvent,
 } from '@testing-library/react-native';
 import { FastScrollSectionDots, Section } from '../../index';
-import { dragThroughPositions } from '../../__fixtures__/gestures';
-import { getThumbPosition } from '../../__fixtures__/thumb';
+import { drag, getPanHandler, touchDown } from '../../__fixtures__/gestures';
+import {
+  getDotsScrollOffset,
+  getThumbPosition,
+} from '../../__fixtures__/positions';
 
 type SectionLabel = Exclude<Section['text'], string>;
 
@@ -24,8 +27,11 @@ const activeAwareLabel = (name: string): SectionLabel =>
 // starts nearest to it, so a finger at these heights picks:
 const FINGER_ON = { fruits: 5, vegetables: 40, dairy: 61 };
 
-// ...and the thumb sits on the middle of a dot, 5px further down.
+// ...and once settled, the thumb sits on the middle of a dot, 5px further down.
 const THUMB_ON = { fruits: 17, vegetables: 39, dairy: 61 };
+
+// While a finger drags it, the thumb tracks the finger half a dot above it.
+const THUMB_UNDER_FINGER_AT = (y: number) => y - 5;
 
 const SECTIONS: Section[] = [
   { index: 0, text: 'Fruits' },
@@ -91,6 +97,24 @@ const layoutSectionList = ({
   );
 };
 
+/**
+ * Lays the dots bar out at `height`, as the native layout pass would. The bar
+ * reads its size with `measure()`, which RN's Jest preset mocks with a
+ * `jest.fn()` shared by every View that never calls back; this makes it answer
+ * once, then resets it so nothing leaks into later layouts.
+ */
+const layoutDotsBar = (height: number) => {
+  const measure = jest.mocked(View.prototype.measure);
+  measure.mockImplementationOnce((callback) =>
+    callback(0, 0, 20, height, 0, 0)
+  );
+  fireEvent(getPanHandler(), 'layout', {
+    nativeEvent: { layout: { x: 0, y: 0, width: 20, height } },
+  });
+  expect(measure).toHaveBeenCalledTimes(1);
+  measure.mockReset();
+};
+
 /** Nothing is on screen when the container holds neither the dots nor the list. */
 const isAnythingShown = () => {
   const tree = screen.toJSON();
@@ -140,6 +164,64 @@ describe('FastScrollSectionDots', () => {
     expect(getThumbPosition()).toBe(THUMB_ON.fruits);
   });
 
+  it('lets the thumb follow the finger, then snaps it to the nearest dot when the finger lifts', () => {
+    const { onScrollToIndex } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+    });
+    const finger = touchDown(FINGER_ON.fruits);
+
+    // Between the first two dots, nearer the second.
+    finger.moveTo(30);
+    expect(getThumbPosition()).toBe(THUMB_UNDER_FINGER_AT(30));
+
+    finger.lift();
+    expect(getThumbPosition()).toBe(THUMB_ON.vegetables);
+    act(() => jest.advanceTimersByTime(1000));
+    expect(onScrollToIndex).toHaveBeenLastCalledWith(5);
+  });
+
+  it('keeps the thumb under the finger while the list reports its position, and follows the list again once the finger lifts', () => {
+    const { showListItem } = renderDots({ hideFastScrollIndicatorTimeout: 0 });
+    const finger = touchDown(FINGER_ON.fruits);
+    finger.moveTo(FINGER_ON.dairy);
+
+    // The list scrolls in response and reports where it currently is.
+    showListItem(0);
+    expect(getThumbPosition()).toBe(THUMB_UNDER_FINGER_AT(FINGER_ON.dairy));
+
+    finger.lift();
+    showListItem(0);
+    expect(getThumbPosition()).toBe(THUMB_ON.fruits);
+  });
+
+  it('scrolls its dots to keep the active one in view when they do not all fit', () => {
+    const { showListItem } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+      sections: Array.from({ length: 30 }, (_, i) => ({
+        index: i * 10,
+        text: `Aisle ${i}`,
+      })),
+    });
+    layoutDotsBar(300);
+
+    // Aisle 25's dot is centered at 12 * 26 + 10 * 25 + 5 = 567. The bar
+    // scrolls it to ten dots (100px) above its bottom edge: 300 - 100 - 567.
+    showListItem(250);
+    expect(getDotsScrollOffset()).toBe(-367);
+
+    showListItem(0);
+    expect(getDotsScrollOffset()).toBe(0);
+  });
+
+  it('keeps its dots still when they all fit', () => {
+    const { showListItem } = renderDots({ hideFastScrollIndicatorTimeout: 0 });
+    layoutDotsBar(300);
+
+    showListItem(9);
+
+    expect(getDotsScrollOffset()).toBe(0);
+  });
+
   // Today the dots remount when they reappear and the thumb starts at the top
   // of the bar (above the first dot) until the next onViewableIndexChanged.
   // Calls made while the dots are hidden are dropped as well.
@@ -156,7 +238,7 @@ describe('FastScrollSectionDots', () => {
     });
     expect(screen.queryByText('Fruits')).not.toBeOnTheScreen();
 
-    dragThroughPositions([FINGER_ON.vegetables]);
+    touchDown(FINGER_ON.fruits).moveTo(FINGER_ON.vegetables);
 
     expect(screen.getByText('Fruits')).toBeOnTheScreen();
     expect(screen.getByText('Vegetables (active)')).toBeOnTheScreen();
@@ -168,11 +250,7 @@ describe('FastScrollSectionDots', () => {
       hideFastScrollIndicatorTimeout: 0,
     });
 
-    dragThroughPositions([
-      FINGER_ON.fruits,
-      FINGER_ON.vegetables,
-      FINGER_ON.dairy,
-    ]);
+    drag([FINGER_ON.fruits, FINGER_ON.vegetables, FINGER_ON.dairy]);
     act(() => jest.advanceTimersByTime(999));
     expect(onScrollToIndex).not.toHaveBeenCalled();
 
@@ -185,7 +263,7 @@ describe('FastScrollSectionDots', () => {
     const { onScrollToIndex } = renderDots({
       hideFastScrollIndicatorTimeout: 0,
     });
-    dragThroughPositions([FINGER_ON.fruits]);
+    drag([FINGER_ON.fruits]);
     act(() => jest.advanceTimersByTime(1000));
 
     await user.press(screen.getByText('Dairy'));
@@ -203,7 +281,7 @@ describe('FastScrollSectionDots', () => {
   it('keeps the dots on screen while the section list is open and hides both afterwards', () => {
     const { scrollList } = renderDots({ hideFastScrollIndicatorTimeout: 1000 });
     scrollList();
-    dragThroughPositions([FINGER_ON.vegetables]);
+    drag([FINGER_ON.vegetables]);
 
     // The section list closes itself after 3 s without interaction; until then
     // the dots ignore their own 1 s timeout.
@@ -220,7 +298,7 @@ describe('FastScrollSectionDots', () => {
 
   it('keeps the section list open while the user scrolls through it', () => {
     renderDots({ hideFastScrollIndicatorTimeout: 0 });
-    dragThroughPositions([FINGER_ON.fruits]);
+    drag([FINGER_ON.fruits]);
     act(() => jest.advanceTimersByTime(2000));
 
     fireEvent.scroll(screen.getByText('Dairy'), {
@@ -239,11 +317,13 @@ describe('FastScrollSectionDots', () => {
 
   it('scrolls the open section list to center the section under the finger, and again a second later', () => {
     renderDots({ hideFastScrollIndicatorTimeout: 0 });
-    dragThroughPositions([FINGER_ON.fruits]);
+    drag([FINGER_ON.fruits]);
     layoutSectionList({ visibleHeight: 40, rowHeight: 30 });
     const scrollTo: jest.Mock = getSectionListScrollView().instance.scrollTo;
+    // Count only what the next touch does, not the scroll to the tapped Fruits.
+    scrollTo.mockClear();
 
-    dragThroughPositions([FINGER_ON.dairy]);
+    touchDown(FINGER_ON.dairy);
 
     // Dairy's row spans 60..90; centered in a 40px list, the list shows 55..95.
     expect(scrollTo.mock.calls).toEqual([[{ y: 55 }]]);

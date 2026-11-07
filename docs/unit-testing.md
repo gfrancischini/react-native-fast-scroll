@@ -198,10 +198,13 @@ frame and never again.
 
 Do **not** call Reanimated's `setUpTests()` helper: in 2.12 it calls
 `require('expect').extend`, which does not exist on Jest >= 28, so the
-`toHaveAnimatedStyle` matcher is not available. The one animated value a user
-reads is where a scroll bar's thumb sits; read it with `getThumbPosition()` from
-`src/__fixtures__/thumb.ts`, which advances one frame and returns the thumb's
-live `translateY`:
+`toHaveAnimatedStyle` matcher is not available. Two animated values carry
+meaning for the user, and `src/__fixtures__/positions.ts` reads both:
+
+- `getThumbPosition()` - where a scroll bar's thumb sits. Advances one frame
+  and returns the thumb's live `translateY`.
+- `getDotsScrollOffset()` - how far the dots bar has scrolled its own strip of
+  dots. Lets the spring settle (1 s) and returns the strip's `translateY`.
 
 ```tsx
 act(() => ref.current?.onViewableIndexChanged(7));
@@ -209,40 +212,48 @@ act(() => ref.current?.onViewableIndexChanged(7));
 expect(getThumbPosition()).toBe(39); // the middle of the second dot
 ```
 
-Everything else animated (scale, slide-in, springs) is decoration: assert on
-what is rendered and which callbacks fired.
+Everything else animated (scale, slide-in) is decoration: assert on what is
+rendered and which callbacks fired.
 
 ### Gestures
 
-`react-native-gesture-handler` is set up with its official `jestSetup`. Drags
+`react-native-gesture-handler` is set up with its official `jestSetup`. Touches
 on the old-API `PanGestureHandler` used by `FastScrollIndicator` and
 `FastScrollSectionDotsBar` go through the helpers in
-`src/__fixtures__/gestures.ts` - use them instead of calling
-`fireGestureHandler` directly:
+`src/__fixtures__/gestures.ts` - never RNGH's `fireGestureHandler` (see
+*Events go where a device sends them* below):
 
 ```tsx
-import { dragThroughPositions, layoutPanArea } from '../../__fixtures__/gestures';
+import { layoutPanArea, touchDown } from '../../__fixtures__/gestures';
 
 render(<FastScrollIndicator thumbSize={THUMB} scrollToOffsetPercentage={onScroll} />);
 layoutPanArea(550);
 
-dragThroughPositions([25, 275, 525]);
-
-expect(onScroll.mock.calls).toEqual([[0], [0.5], [1]]);
+const finger = touchDown(25); // onStart
+expect(onScroll).toHaveBeenLastCalledWith(0);
+finger.moveTo(275); // onActive
+expect(onScroll).toHaveBeenLastCalledWith(0.5);
+finger.lift(); // onFinish
 ```
+
+- **A finger, step by step.** `touchDown(y)` returns a finger you can
+  `moveTo(y)`, hold (just stop calling it - the gesture stays active) and
+  `lift()`. Lifting a finger that never moved fails the pan, as a tap does on a
+  device. `drag([y, ...])` is the whole gesture in one call: touch down, move
+  through the rest, lift.
 
 - **Finding the handler.** Under Jest each handler's child receives a
   `handlerType` prop, and the components expose no `testID`, so `getPanHandler`
   uses `UNSAFE_getAllByProps`. `UNSAFE_*` queries are banned everywhere else;
   this helper is the one exception.
-- **Only moves arrive.** `fireGestureHandler` sends state changes (`BEGAN`, the
-  first `ACTIVE`, `END`) as `onGestureHandlerStateChange`, which RNGH forwards to
-  `onHandlerStateChange` - a prop these components do not set. Only the
-  repeated `ACTIVE` events reach `onGestureEvent`. So under Jest a Reanimated
-  `useAnimatedGestureHandler` runs `onActive` once per position and **never runs
-  `onStart` or `onFinish`**. `dragThroughPositions` sends one move per `y` you
-  pass; behavior that lives in `onStart`/`onFinish` (thumb scale, hiding the
-  indicator after the finger lifts) cannot be tested today.
+- **Events go where a device sends them.** On a device, RNGH hands every
+  event of a Reanimated worklet handler - state changes and moves alike - to
+  the worklet, which Reanimated registers for both event names. RNGH's
+  `fireGestureHandler` instead routes state changes (`BEGAN`, `END`, ...) to
+  `onHandlerStateChange`, a prop these components do not set, so
+  `useAnimatedGestureHandler` would never run `onStart` or `onFinish`. The
+  helpers send everything as `onGestureHandlerEvent`, so all three callbacks run
+  as in the app.
 - **Lay out first.** Gesture coordinates are relative to a laid-out view. Call
   `layoutPanArea(height)` before dragging when the component computes positions
   from its own size (`FastScrollIndicator`), otherwise every percentage is
@@ -267,6 +278,11 @@ The `react-native` preset mocks native components. Two things that matter here:
   `layoutTabBar` and `layoutSectionList` do in the component suites. A
   `layout` event fired on a label bubbles to the nearest view that measures
   itself (a tab, a list row).
+- `View`'s native methods are mocked the same way: `measure` is one `jest.fn()`
+  on `View.prototype` that never calls back. The dots bar reads its height with
+  it, so `layoutDotsBar` in the dots suite makes it answer once
+  (`mockImplementationOnce`), fires `layout`, and resets it - an implementation
+  left behind would answer some later, unrelated layout.
 
 ## Placement, naming, running
 
@@ -434,19 +450,16 @@ internals.
 Open items in the testing setup, so a test is not written around them by
 accident:
 
-- Gesture `onStart` / `onFinish` never run under Jest (see
-  [Gestures](#gestures)): what happens when a finger lands on or lifts off a
-  scroll bar is untested. Passing the same handler to `onHandlerStateChange`
-  in the components would close this gap.
 - `toHaveAnimatedStyle` is unavailable (Reanimated 2.12 + Jest 28
-  incompatibility). `getThumbPosition()` covers the thumb; no other animated
-  style is read.
+  incompatibility). `positions.ts` reads the thumb and the dots strip; the
+  thumb's scale on press is not read.
 - The scroll bars, the dots and the thumb render no text and expose no
   accessibility role or label, so tests cannot query them the way a user (or a
   screen reader) would perceive them. `getThumbPosition()` finds the thumb as
   the only absolutely positioned view in the pan area. Adding accessibility
   props to the library would fix both the tests and real accessibility.
 - No layout engine: positions that depend on `onLayout` / `measure` only exist
-  when the test fires the event itself. `measure` (used by the dots bar through
-  `useComponentSize`) never calls back, so the dots bar's own scrolling when
-  there are more dots than fit is untested.
+  when the test provides them (see [Mocks the RN preset already
+  provides](#mocks-the-rn-preset-already-provides)).
+- The gesture helpers reproduce how RNGH 2.8 and Reanimated 2.12 route events,
+  read from their source, not observed on a device.
