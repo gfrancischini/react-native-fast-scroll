@@ -5,4 +5,5 @@ export type RootStackParamList = {
   Performance: undefined;
   StaleCallback: undefined;
   DotsLayout: undefined;
+  MemoryLeak: undefined;
 };
