@@ -5,7 +5,9 @@ import {
   FastScrollIndicator,
   FastScrollSectionDots,
   FastScrollSectionTab,
+  Section,
   SectionFullData,
+  SectionTextProps,
 } from 'react-native-fast-scroll';
 import { FlashList, ListRenderItemInfo, ViewToken } from '@shopify/flash-list';
 import {
@@ -19,6 +21,42 @@ import CollapsibleScrollableContainer from '../components/CollapsibleScrollableC
 import CategorySectionHeader from './CategorySectionHeader';
 import CategoryCell from './CategoryCell';
 import Frame from '../components/Frame';
+
+/** The fields this app adds to each section, on top of the library's. */
+type CategoryFields = Pick<
+  Header,
+  'category1' | 'category2' | 'showTextWhenInactive'
+>;
+
+/**
+ * The label of a category in the tab bar and in the dots' section list. Like
+ * the production app, it reads the app's own fields from the `section` prop.
+ */
+const CategorySectionLabel = React.memo(function CategorySectionLabel({
+  section,
+  isActive,
+}: SectionTextProps) {
+  const { category1, category2, showTextWhenInactive } =
+    section as SectionFullData & CategoryFields;
+  return (
+    <>
+      <Text
+        style={[
+          styles.labelCategory,
+          showTextWhenInactive
+            ? styles.labelHighlighted
+            : isActive
+            ? undefined
+            : styles.labelInactive,
+        ]}
+      >
+        {category1}
+      </Text>
+      <Text> / </Text>
+      <Text style={styles.labelCategory}>{category2}</Text>
+    </>
+  );
+});
 
 const Categories = () => {
   const stickyHeaderIndices = data
@@ -109,46 +147,24 @@ const Categories = () => {
     });
   };
 
-  const stickyHeaderIndicesWithData = data
-    .map((item, index) => {
-      if (item.type === 'Header') {
-        const header = item as Header;
-        return {
+  const stickyHeaderIndicesWithData = data.flatMap(
+    (item, index): (Section & CategoryFields)[] => {
+      if (item.type !== 'Header') {
+        return [];
+      }
+      const header = item as Header;
+      return [
+        {
           index: index,
-          // @ts-ignore
-          // TODO: create a new component for this text and fix the sectionfulldatav2 type
-          // eslint-disable-next-line react/no-unstable-nested-components
-          text: ({ section, isActive }: SectionFullData) => {
-            const style = StyleSheet.create({
-              category1: {
-                color: section.showTextWhenInactive
-                  ? '#E74C3B'
-                  : isActive
-                  ? undefined
-                  : 'white',
-                fontWeight: '600',
-              },
-              category2: { fontWeight: '600' },
-            });
-            return (
-              <>
-                <Text style={style.category1}>{section.category1}</Text>
-                <Text> / </Text>
-                <Text style={style.category2}>{section.category2}</Text>
-              </>
-            );
-          },
-          //text: `${item.category1} / ${item.category2}`,
+          text: CategorySectionLabel,
           dotColor: header.showTextWhenInactive ? '#E74C3B' : 'white',
           showTextWhenInactive: header.showTextWhenInactive,
           category1: header.category1,
           category2: header.category2,
-        };
-      } else {
-        return null;
-      }
-    })
-    .filter((item) => item !== null) as any;
+        },
+      ];
+    }
+  );
 
   return (
     <Frame>
@@ -233,6 +249,9 @@ const Categories = () => {
 };
 
 const styles = StyleSheet.create({
+  labelCategory: { fontWeight: '600' },
+  labelHighlighted: { color: '#E74C3B' },
+  labelInactive: { color: 'white' },
   container: { flex: 1 },
   listContainer: { flex: 1, overflow: 'hidden' },
   fastScrollIndicatorContainer: {
