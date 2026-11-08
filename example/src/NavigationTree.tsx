@@ -7,6 +7,7 @@ import Categories from './category/Categories';
 import { ExamplesScreen } from './ExamplesScreen';
 import Performance from './performance/Performance';
 import StaleCallback from './staleCallback/StaleCallback';
+import DotsLayout from './dotsLayout/DotsLayout';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -19,6 +20,7 @@ const NavigationTree = () => {
           <Stack.Screen name="Categories" component={Categories} />
           <Stack.Screen name="Performance" component={Performance} />
           <Stack.Screen name="StaleCallback" component={StaleCallback} />
+          <Stack.Screen name="DotsLayout" component={DotsLayout} />
         </Stack.Group>
 
         <Stack.Group screenOptions={{ presentation: 'modal' }}>
