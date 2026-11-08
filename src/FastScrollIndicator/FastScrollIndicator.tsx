@@ -121,8 +121,21 @@ export const FastScrollIndicator = React.forwardRef(
       }
     }, []);
 
+    // The pan gesture below calls JS functions through runOnJS, and on a device
+    // Reanimated holds every function a worklet calls from native code. Those
+    // functions read the props through refs, so they never change and the pan
+    // is built once: rebuilt on each render, it kept each render of the app's
+    // screen alive through the callbacks it closed over.
+    const scrollToOffsetPercentageRef = useRef(scrollToOffsetPercentage);
+    scrollToOffsetPercentageRef.current = scrollToOffsetPercentage;
+    const hideFastScrollIndicatorTimeoutRef = useRef(
+      hideFastScrollIndicatorTimeout
+    );
+    hideFastScrollIndicatorTimeoutRef.current = hideFastScrollIndicatorTimeout;
+
     const scheduleHideFastScrollbar = useCallback(() => {
-      if (hideFastScrollIndicatorTimeout === 0) {
+      const timeout = hideFastScrollIndicatorTimeoutRef.current;
+      if (timeout === 0) {
         // we dont hide the scroll indicator when the value is zero
         return;
       }
@@ -130,8 +143,8 @@ export const FastScrollIndicator = React.forwardRef(
       translateFastScrollBarXTimer.current = setTimeout(() => {
         translateFastScrollBarXTimer.current = null;
         setVisible(false);
-      }, hideFastScrollIndicatorTimeout);
-    }, [clearTimeoutFastScrollBar, hideFastScrollIndicatorTimeout]);
+      }, timeout);
+    }, [clearTimeoutFastScrollBar]);
 
     const showFastScrollBar = useCallback(() => {
       setVisible(true);
@@ -151,12 +164,9 @@ export const FastScrollIndicator = React.forwardRef(
       showFastScrollBar,
     ]);
 
-    const processScrollJSThread = useCallback(
-      (offsetPercentage: number) => {
-        scrollToOffsetPercentage(offsetPercentage);
-      },
-      [scrollToOffsetPercentage]
-    );
+    const processScrollJSThread = useCallback((offsetPercentage: number) => {
+      scrollToOffsetPercentageRef.current(offsetPercentage);
+    }, []);
 
     const thumbHeight = thumbSize.height;
 

@@ -252,6 +252,18 @@ finger.lift(); // onFinalize
   of the gesture: a state change carries `oldState`, a move while active does
   not. RNGH then calls `onBegin` / `onStart` / `onUpdate` / `onFinalize` as it
   does on a device.
+- **Re-renders reach the pan on the next tick.** When a re-render hands
+  `GestureDetector` a rebuilt gesture, it applies the new callbacks in a
+  `setImmediate`, which fake timers hold back. Every pan event the helpers send
+  first advances the clock by 0 ms to let it through, as the next tick always
+  passes on a device before a touch.
+- **The pan must not be rebuilt per render.** `getPanCallbacks()` returns the
+  pan's callbacks as `GestureDetector` last applied them. On a device they are
+  the worklets Reanimated receives, and it holds the JS functions they call from
+  native code, so a pan rebuilt on every render keeps every render of the app
+  alive. A test that re-renders with new props asserts the callbacks stay the
+  same object. This is the one place a test checks object identity: the leak it
+  guards against cannot be measured under Jest.
 - **Lay out first.** Gesture coordinates are relative to a laid-out view. Call
   `layoutPanArea(height)` before dragging when the component computes positions
   from its own size (`FastScrollIndicator`), otherwise every percentage is

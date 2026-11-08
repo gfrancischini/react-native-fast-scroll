@@ -9,8 +9,10 @@ yet; write one first when picking an item up (see
 ### Release the fixes made since 0.3.3
 
 npm has 0.3.3, which predates the fixes for the stale `onScrollToIndex` after a
-drag on the dots, the drag area of the dots bar, the tab bar re-renders and the
-section label types. The production app still runs a patched 0.3.2. When it
+drag on the dots, the drag area of the dots bar, the tab bar re-renders, the
+section label types, and the pan gestures that kept every render of the app's
+screen in memory (rebuilt on each render, they handed Reanimated new JS
+functions to hold from native code). The production app still runs a patched 0.3.2. When it
 upgrades it should drop the whole patch (see `CLAUDE.md`).
 
 Before that release, check on a device that the active tab of

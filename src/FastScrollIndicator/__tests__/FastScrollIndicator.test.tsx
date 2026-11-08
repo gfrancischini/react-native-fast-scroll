@@ -1,7 +1,12 @@
 import React from 'react';
 import { act, render, screen } from '@testing-library/react-native';
 import { FastScrollIndicator } from '../../index';
-import { drag, layoutPanArea, touchDown } from '../../__fixtures__/gestures';
+import {
+  drag,
+  getPanCallbacks,
+  layoutPanArea,
+  touchDown,
+} from '../../__fixtures__/gestures';
 import { getThumbPosition } from '../../__fixtures__/positions';
 
 // A 50px thumb on a 550px track: its center travels from y=25 to y=525.
@@ -183,6 +188,84 @@ describe('FastScrollIndicator', () => {
     scrollListTo(0.2);
 
     expect(getThumbPosition()).toBe(100);
+  });
+
+  // Apps usually pass a new inline scrollToOffsetPercentage on every render.
+  it('scrolls the list with the scrollToOffsetPercentage of the latest render', () => {
+    const firstScrollTo = jest.fn();
+    const latestScrollTo = jest.fn();
+    const { rerender } = render(
+      <FastScrollIndicator
+        thumbSize={THUMB}
+        scrollToOffsetPercentage={firstScrollTo}
+      />
+    );
+    layoutPanArea(TRACK_HEIGHT);
+    rerender(
+      <FastScrollIndicator
+        thumbSize={THUMB}
+        scrollToOffsetPercentage={latestScrollTo}
+      />
+    );
+
+    drag([25, 275]);
+
+    expect(latestScrollTo).toHaveBeenLastCalledWith(0.5);
+    expect(firstScrollTo).not.toHaveBeenCalled();
+  });
+
+  it('hides the bar after the hideFastScrollIndicatorTimeout of the latest render once the finger lifts', () => {
+    const ref = React.createRef<React.ElementRef<typeof FastScrollIndicator>>();
+    const scrollToOffsetPercentage = jest.fn();
+    const { rerender } = render(
+      <FastScrollIndicator
+        ref={ref}
+        thumbSize={THUMB}
+        scrollToOffsetPercentage={scrollToOffsetPercentage}
+        hideFastScrollIndicatorTimeout={1000}
+      />
+    );
+    layoutPanArea(TRACK_HEIGHT);
+    rerender(
+      <FastScrollIndicator
+        ref={ref}
+        thumbSize={THUMB}
+        scrollToOffsetPercentage={scrollToOffsetPercentage}
+        hideFastScrollIndicatorTimeout={3000}
+      />
+    );
+    act(() => ref.current?.onScrollToOffsetPercentage(0.1));
+
+    drag([25, 275]);
+
+    act(() => jest.advanceTimersByTime(2999));
+    expect(isScrollBarShown()).toBe(true);
+    act(() => jest.advanceTimersByTime(1));
+    expect(isScrollBarShown()).toBe(false);
+  });
+
+  // On a device, each rebuilt pan gesture hands Reanimated new worklets, and
+  // Reanimated holds the JS functions they call from native code. A pan
+  // rebuilt on every render kept every render of the app's screen alive
+  // through the callbacks those functions closed over, so closed screens
+  // piled up in memory. Jest cannot measure that leak; keeping the pan's
+  // callbacks the same objects is what prevents it.
+  it('keeps the same pan callbacks while the app passes new props on every render', () => {
+    // A new inline callback each time, as an app's render creates one.
+    const indicatorWith = (hideFastScrollIndicatorTimeout: number) => (
+      <FastScrollIndicator
+        thumbSize={THUMB}
+        scrollToOffsetPercentage={(offsetPercentage) => offsetPercentage}
+        hideFastScrollIndicatorTimeout={hideFastScrollIndicatorTimeout}
+      />
+    );
+    const { rerender } = render(indicatorWith(1000));
+    const callbacks = getPanCallbacks();
+
+    rerender(indicatorWith(1000));
+    rerender(indicatorWith(3000));
+
+    expect(getPanCallbacks()).toBe(callbacks);
   });
 
   // Today the hidden track still takes the drag and scrolls the list, but the
