@@ -3,4 +3,5 @@ export type RootStackParamList = {
   Categories: undefined;
   Debug: undefined;
   Performance: undefined;
+  StaleCallback: undefined;
 };
