@@ -36,7 +36,22 @@ grouped by category, with both components layered over it:
 **Generic list wrapper** - a shared FlashList wrapper renders a right-side
 `FastScrollIndicator` over every list in the app, wired the same way.
 
-`FastScrollSectionTab` is not used in production.
+**Sectioned list with a tab bar** - one screen of the app puts a
+`FastScrollSectionTab` above a FlashList of rows grouped by category, with a
+right-side `FastScrollIndicator` over the list:
+
+- **Sections.** Plain `{ index, text }` with `text` a string, passed as
+  `stickyHeaderIndicesWithData`. The tab bar is styled through
+  `tabBarStyle`, `tabBarItemTextStyle`, `tabBarActiveItemTextStyle` and
+  `tabBarActiveItemStyle`.
+- **Display only.** The tab bar sits inside a view with `pointerEvents="none"`
+  (it slides away with a collapsible header), so no tab is ever tapped and
+  `onScrollToIndex` never fires from it. What production relies on is the tab
+  bar following the list: `onViewableIndexChanged` is called with the first
+  viewable index on every viewability change, not debounced, and the active tab
+  must change and scroll into view.
+- The indicator gets `onScrollToOffsetPercentage` on every `onScroll` frame and
+  uses the default `hideFastScrollIndicatorTimeout`.
 
 The app imports `SectionFullData` from the deep path
 `react-native-fast-scroll/src/types`, so moving or renaming `src/types.ts` (or
