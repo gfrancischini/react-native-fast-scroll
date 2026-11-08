@@ -114,6 +114,14 @@ const FastScrollSectionDotsBar = React.forwardRef(
     useEffect(() => {}, []);
 
     /**
+     * Height of the strip that holds every dot: a margin above each dot and one
+     * below the last. The dots are shifted down with `top`, which does not grow
+     * their parent, so the strip gets this height explicitly. The strip is
+     * also the area the finger drags, so it must reach the last dot.
+     */
+    const stripHeight = sections.length * (dotSize + dotMargin) + dotMargin;
+
+    /**
      * This is used to avoid noise coming from the list while the user is doing gestures
      * directly on the scrollbar
      */
@@ -155,8 +163,15 @@ const FastScrollSectionDotsBar = React.forwardRef(
         newValue = 0;
       }
 
+      // Never scroll past the last dot: that would leave the bottom of the bar
+      // empty and out of reach of the finger.
+      const lowestScrollY = Math.min(0, size.height - stripHeight);
+      if (newValue < lowestScrollY) {
+        newValue = lowestScrollY;
+      }
+
       return newValue;
-    }, [dotSize, dotMargin, size, pointStylePositionY]);
+    }, [dotSize, dotMargin, size, pointStylePositionY, stripHeight]);
 
     const containerScrollStyle = useAnimatedStyle(() => {
       return {
@@ -293,7 +308,9 @@ const FastScrollSectionDotsBar = React.forwardRef(
             paddingHorizontal: 5,
             borderRadius: dotSize,
             marginRight: 10,
-            paddingBottom: 5,
+            // As tall as all the dots, but never taller than the space the app
+            // gives the dots: when they do not fit, the strip scrolls inside.
+            flexShrink: 1,
           },
           text: { fontSize: 10 },
           thumb: {
@@ -320,7 +337,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
         <GestureDetector gesture={pan}>
           <Animated.View
             collapsable={false}
-            style={containerScrollStyle}
+            style={[{ height: stripHeight }, containerScrollStyle]}
             testID={DOTS_TRACK_TEST_ID}
           >
             {sections.map((section, index) => {
