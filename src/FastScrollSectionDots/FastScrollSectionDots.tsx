@@ -1,6 +1,6 @@
 import type { SectionFullData, Section } from '../types';
 
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, ColorValue, View } from 'react-native';
 import Animated, {
   SlideInLeft,
@@ -165,19 +165,36 @@ const FastScrollSectionDots = React.forwardRef(
       lockScrollBarVisibility(false);
     }, [lockScrollBarVisibility]);
 
-    const debouncedScrollToIndex = useRef(
-      debounce(
-        debounceOnScrollToIndexDelay,
-        (index: number) => {
-          onScrollToIndex(index);
-        },
-        { atBegin: false }
-      )
+    // The debounced call reads the callback when it fires, so it uses the
+    // latest onScrollToIndex even if the app passed a new one meanwhile.
+    const onScrollToIndexRef = useRef(onScrollToIndex);
+    onScrollToIndexRef.current = onScrollToIndex;
+
+    const debouncedScrollToIndex = useMemo(
+      () =>
+        debounce(
+          debounceOnScrollToIndexDelay,
+          (index: number) => {
+            onScrollToIndexRef.current(index);
+          },
+          { atBegin: false }
+        ),
+      [debounceOnScrollToIndexDelay]
+    );
+
+    // Read through a ref so a new delay does not rebuild the dots' pan gesture.
+    const debouncedScrollToIndexRef = useRef(debouncedScrollToIndex);
+    debouncedScrollToIndexRef.current = debouncedScrollToIndex;
+
+    // Drop a pending scroll when the delay changes or the dots unmount.
+    useEffect(
+      () => () => debouncedScrollToIndex.cancel(),
+      [debouncedScrollToIndex]
     );
 
     const onSectionChange = useCallback(
       (section: SectionFullData) => {
-        debouncedScrollToIndex.current(section.index);
+        debouncedScrollToIndexRef.current(section.index);
 
         if (section) {
           // locing the panel as we are opening the full list
@@ -191,10 +208,12 @@ const FastScrollSectionDots = React.forwardRef(
     const fastScrollFullListOnScrollToIndex = useCallback(
       (index: number) => {
         // as we have clicked on a item we will not wait the debounce
-        // we should scroll directly
+        // we should scroll directly, and the pending scroll of the drag must
+        // not take the list back to the dragged section afterwards
+        debouncedScrollToIndex.cancel();
         onScrollToIndex(index);
       },
-      [onScrollToIndex]
+      [debouncedScrollToIndex, onScrollToIndex]
     );
 
     const fastScrollSectionFullListRef =

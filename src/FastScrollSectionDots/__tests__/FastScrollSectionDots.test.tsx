@@ -312,6 +312,101 @@ describe('FastScrollSectionDots', () => {
     expect(onScrollToIndex.mock.calls).toEqual([[9]]);
   });
 
+  // Apps rebuild onScrollToIndex when what it reads changes, e.g. the height of
+  // a header drawn over the list that it passes as viewOffset.
+  it('scrolls with the onScrollToIndex of the latest render once the drag settles', () => {
+    const firstOnScrollToIndex = jest.fn();
+    const latestOnScrollToIndex = jest.fn();
+    const { rerender } = render(
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={SECTIONS}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={firstOnScrollToIndex}
+      />
+    );
+    rerender(
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={SECTIONS}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={latestOnScrollToIndex}
+      />
+    );
+
+    drag([FINGER_ON.fruits, FINGER_ON.dairy]);
+    act(() => jest.advanceTimersByTime(1000));
+
+    expect(latestOnScrollToIndex.mock.calls).toEqual([[9]]);
+    expect(firstOnScrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it('scrolls with the onScrollToIndex passed while the drag was settling', () => {
+    const firstOnScrollToIndex = jest.fn();
+    const latestOnScrollToIndex = jest.fn();
+    const { rerender } = render(
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={SECTIONS}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={firstOnScrollToIndex}
+      />
+    );
+    drag([FINGER_ON.fruits, FINGER_ON.dairy]);
+
+    rerender(
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={SECTIONS}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={latestOnScrollToIndex}
+      />
+    );
+    act(() => jest.advanceTimersByTime(1000));
+
+    expect(latestOnScrollToIndex.mock.calls).toEqual([[9]]);
+    expect(firstOnScrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it('waits for the debounceOnScrollToIndexDelay of the latest render', () => {
+    const onScrollToIndex = jest.fn();
+    const { rerender } = render(
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={SECTIONS}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={onScrollToIndex}
+      />
+    );
+    rerender(
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={SECTIONS}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={onScrollToIndex}
+        debounceOnScrollToIndexDelay={300}
+      />
+    );
+
+    drag([FINGER_ON.fruits, FINGER_ON.dairy]);
+    act(() => jest.advanceTimersByTime(299));
+    expect(onScrollToIndex).not.toHaveBeenCalled();
+
+    act(() => jest.advanceTimersByTime(1));
+    expect(onScrollToIndex.mock.calls).toEqual([[9]]);
+  });
+
+  it('does not scroll the list once it unmounts while a drag is settling', () => {
+    const onScrollToIndex = jest.fn();
+    const { unmount } = render(
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={SECTIONS}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={onScrollToIndex}
+      />
+    );
+    drag([FINGER_ON.fruits, FINGER_ON.dairy]);
+
+    unmount();
+    act(() => jest.advanceTimersByTime(1000));
+
+    expect(onScrollToIndex).not.toHaveBeenCalled();
+  });
+
   it('scrolls the list to the first item of a section tapped in the section list', () => {
     const { onScrollToIndex } = renderDots({
       hideFastScrollIndicatorTimeout: 0,
@@ -347,11 +442,17 @@ describe('FastScrollSectionDots', () => {
     }
   );
 
-  // Today a tap within 1 s of the drag scrolls to the tapped section, then the
-  // pending debounced call scrolls back to the dragged section's header.
-  it.todo(
-    'stays on the tapped section when it is tapped before the drag settles'
-  );
+  it('stays on the tapped section when it is tapped before the drag settles', () => {
+    const { onScrollToIndex } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+    });
+    drag([FINGER_ON.fruits, FINGER_ON.vegetables]);
+
+    tapSectionListRow(SECTION.dairy);
+    act(() => jest.advanceTimersByTime(1000));
+
+    expect(onScrollToIndex.mock.calls).toEqual([[10]]);
+  });
 
   it('keeps the dots on screen while the section list is open and hides both afterwards', () => {
     const { scrollList } = renderDots({ hideFastScrollIndicatorTimeout: 1000 });
