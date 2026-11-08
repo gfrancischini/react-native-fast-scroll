@@ -1,6 +1,6 @@
 import type { SectionFullData } from '../types';
 
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { StyleSheet, ColorValue } from 'react-native';
 
 import Animated, {
@@ -21,6 +21,8 @@ import type { SectionDataWithDimensions } from '../types';
  * the pan gesture's test ID, so tests can find and drive it.
  */
 const DOTS_TRACK_TEST_ID = 'fast-scroll-section-dots-track';
+
+const HIT_SLOP = { horizontal: 20 };
 
 export type Props = {
   /**
@@ -65,12 +67,6 @@ export type Props = {
   onSectionChange: (section: SectionFullData) => void;
 
   sections: SectionFullData[];
-
-  /**
-   * The side that the thumbSize will grow
-   * @default right
-   */
-  side?: 'left' | 'right';
 };
 
 export type FastScrollSectionDotsBarHandle = {
@@ -90,7 +86,6 @@ const FastScrollSectionDotsBar = React.forwardRef(
       dotColor = 'white',
       scrollBarColor = 'rgba(65, 64, 66, 0.9)',
       dotMargin = 12,
-      side,
       onSectionChange,
       ...props
     }: Props,
@@ -104,14 +99,11 @@ const FastScrollSectionDotsBar = React.forwardRef(
       return props.sections.map((section, index) => {
         return {
           ...section,
-          top: dotMargin * (index + 1),
-          end: dotMargin * (index + 1) + dotSize,
-          center: dotMargin * (index + 1) + dotSize * index,
+          topOffset: dotMargin * (index + 1),
+          y: dotMargin * (index + 1) + dotSize * index,
         };
       });
     }, [dotMargin, dotSize, props.sections]);
-
-    useEffect(() => {}, []);
 
     /**
      * Height of the strip that holds every dot: a margin above each dot and one
@@ -146,7 +138,6 @@ const FastScrollSectionDotsBar = React.forwardRef(
         dotSize +
         5;
 
-      //  console.log('visiblewindow', { visibleWindowEndY, visibleWindowStartY });
       let newValue = 0;
 
       // check if the pointStylePositionY.value is out of the container view
@@ -193,14 +184,6 @@ const FastScrollSectionDotsBar = React.forwardRef(
       [onSectionChange, sections]
     );
 
-    const hitSlop = useMemo(() => {
-      if (side === 'left') {
-        return { horizontal: 20 };
-      } else {
-        return { horizontal: 20 };
-      }
-    }, [side]);
-
     const pan = useMemo(() => {
       /** The thumb follows the finger while it is down. */
       const followFinger = (y: number) => {
@@ -219,7 +202,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
 
       return (
         Gesture.Pan()
-          .hitSlop(hitSlop)
+          .hitSlop(HIT_SLOP)
           .withTestId(DOTS_TRACK_TEST_ID)
           // The finger touches the bar
           .onBegin((event) => {
@@ -242,7 +225,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
               sections,
             });
             pointStylePositionY.value = yPosition;
-            const snapPoints = sections.map((section) => section.center);
+            const snapPoints = sections.map((section) => section.y);
             const newTranslate = snapPoint(yPosition, 0, snapPoints);
             pointStylePositionY.value = newTranslate + dotSize / 2;
             containerYOnPointStylePositionY.value = containerScrollY.value;
@@ -257,7 +240,6 @@ const FastScrollSectionDotsBar = React.forwardRef(
       dotMargin,
       dotSize,
       enableExternalScrollEvents,
-      hitSlop,
       onThumbPositionChange,
       pointStylePositionY,
       scale,
@@ -348,7 +330,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
                   style={[
                     styles.dot,
                     {
-                      top: section.top,
+                      top: section.topOffset,
                       backgroundColor:
                         section.dotColor ?? styles.dot.backgroundColor,
                     },

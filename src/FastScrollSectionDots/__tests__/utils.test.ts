@@ -3,15 +3,14 @@ import type { SectionDataWithDimensions } from '../../types';
 
 const dotSection = (
   sectionIndex: number,
-  center: number
+  y: number
 ): SectionDataWithDimensions => ({
   text: `Section ${sectionIndex}`,
   index: sectionIndex * 10,
   startIndex: sectionIndex * 10 + 1,
   sectionIndex,
-  top: 0,
-  end: 0,
-  center,
+  topOffset: 0,
+  y,
 });
 
 describe('calculateYPosition', () => {
@@ -48,7 +47,7 @@ describe('calculateYPosition', () => {
 });
 
 describe('findSectionOnPosition', () => {
-  // Dot centers as laid out by the dots bar: margin * (i + 1) + size * i.
+  // Dot top edges as laid out by the dots bar: margin * (i + 1) + size * i.
   const sections = [dotSection(0, 12), dotSection(1, 34), dotSection(2, 56)];
 
   it.each([

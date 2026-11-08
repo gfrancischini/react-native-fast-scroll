@@ -31,8 +31,8 @@ export const findSectionOnPosition = (
   sections: SectionDataWithDimensions[]
 ) => {
   'worklet';
-  const snapPoints = sections.map((section) => section.center);
+  const snapPoints = sections.map((section) => section.y);
   const newTranslate = snapPoint(positionY, 0, snapPoints);
-  const activeSession = sections.find((s) => s.center === newTranslate);
+  const activeSession = sections.find((s) => s.y === newTranslate);
   return activeSession;
 };

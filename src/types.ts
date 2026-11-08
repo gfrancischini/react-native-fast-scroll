@@ -52,7 +52,13 @@ export type SectionFullData = Section & {
 };
 
 export type SectionDataWithDimensions = SectionFullData & {
-  top: number;
-  end: number;
-  center: number;
+  /**
+   * How far the dot is shifted down with the `top` style, on top of where the
+   * dots before it already put it
+   */
+  topOffset: number;
+  /**
+   * Where the dot's top edge sits in the strip of dots
+   */
+  y: number;
 };

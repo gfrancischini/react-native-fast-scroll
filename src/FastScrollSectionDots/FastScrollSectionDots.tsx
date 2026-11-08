@@ -242,7 +242,6 @@ const FastScrollSectionDots = React.forwardRef(
               thumbColor={thumbColor}
               dotColor={dotColor}
               scrollBarColor={scrollBarColor}
-              side={side}
               onSectionChange={onSectionChange}
             />
           </Animated.View>
