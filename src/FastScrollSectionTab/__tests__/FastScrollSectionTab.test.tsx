@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Animated, ScrollView, Text } from 'react-native';
 import {
   act,
   fireEvent,
@@ -107,6 +107,50 @@ describe('FastScrollSectionTab', () => {
 
     expect(screen.getByText('Vegetables')).toHaveStyle(ACTIVE_TEXT_STYLE);
     expect(screen.getByText('Fruits')).not.toHaveStyle(ACTIVE_TEXT_STYLE);
+  });
+
+  // On React Native 0.70 every re-render of a TouchableOpacity starts a native
+  // opacity animation (a condition in its componentDidUpdate is always true),
+  // and each one holds a pending native callback. Re-rendering every tab when
+  // the active section changes made long lists pass 500 pending callbacks.
+  it('re-renders only the tabs whose active state changes', () => {
+    const { showListItem } = renderTabs(
+      Array.from({ length: 50 }, (_, i) => ({
+        index: i * 10,
+        text: `Aisle ${i}`,
+      }))
+    );
+    showListItem(0);
+    const timing = jest.spyOn(Animated, 'timing');
+
+    showListItem(250);
+
+    // The tab that leaves the active state and the one that enters it.
+    expect(timing.mock.calls.length).toBeLessThanOrEqual(2);
+    timing.mockRestore();
+  });
+
+  it('scrolls with the onScrollToIndex of the latest render when a tab is tapped', async () => {
+    const user = userEvent.setup();
+    const first = jest.fn();
+    const latest = jest.fn();
+    const { rerender } = render(
+      <FastScrollSectionTab
+        stickyHeaderIndicesWithData={SECTIONS}
+        onScrollToIndex={first}
+      />
+    );
+    rerender(
+      <FastScrollSectionTab
+        stickyHeaderIndicesWithData={SECTIONS}
+        onScrollToIndex={latest}
+      />
+    );
+
+    await user.press(screen.getByText('Dairy'));
+
+    expect(latest).toHaveBeenCalledWith(12);
+    expect(first).not.toHaveBeenCalled();
   });
 
   it('tells a custom tab label whether its section is active', () => {
