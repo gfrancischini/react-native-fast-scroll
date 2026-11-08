@@ -2,7 +2,8 @@
   "expo": {
     "slug": "example",
     "name": "example",
-    "sdkVersion": "47.0.0"
+    "sdkVersion": "47.0.0",
+    "jsEngine": "hermes"
   },
   "name": "example"
 }

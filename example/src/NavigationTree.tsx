@@ -8,6 +8,7 @@ import { ExamplesScreen } from './ExamplesScreen';
 import Performance from './performance/Performance';
 import StaleCallback from './staleCallback/StaleCallback';
 import DotsLayout from './dotsLayout/DotsLayout';
+import MemoryLeak from './memoryLeak/MemoryLeak';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -21,6 +22,7 @@ const NavigationTree = () => {
           <Stack.Screen name="Performance" component={Performance} />
           <Stack.Screen name="StaleCallback" component={StaleCallback} />
           <Stack.Screen name="DotsLayout" component={DotsLayout} />
+          <Stack.Screen name="MemoryLeak" component={MemoryLeak} />
         </Stack.Group>
 
         <Stack.Group screenOptions={{ presentation: 'modal' }}>
