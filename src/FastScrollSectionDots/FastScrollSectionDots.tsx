@@ -209,8 +209,10 @@ const FastScrollSectionDots = React.forwardRef(
       (index: number) => {
         // as we have clicked on a item we will not wait the debounce
         // we should scroll directly, and the pending scroll of the drag must
-        // not take the list back to the dragged section afterwards
-        debouncedScrollToIndex.cancel();
+        // not take the list back to the dragged section afterwards.
+        // `upcomingOnly`: a plain cancel() disables the debounce for good, so
+        // later drags would never scroll the list.
+        debouncedScrollToIndex.cancel({ upcomingOnly: true });
         onScrollToIndex(index);
       },
       [debouncedScrollToIndex, onScrollToIndex]

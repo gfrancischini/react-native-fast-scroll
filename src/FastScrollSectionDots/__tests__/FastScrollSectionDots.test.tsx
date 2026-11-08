@@ -454,6 +454,20 @@ describe('FastScrollSectionDots', () => {
     expect(onScrollToIndex.mock.calls).toEqual([[10]]);
   });
 
+  it('still scrolls the list after a drag once a row of the section list was tapped', () => {
+    const { onScrollToIndex } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+    });
+    drag([FINGER_ON.fruits]);
+    tapSectionListRow(SECTION.dairy);
+    onScrollToIndex.mockClear();
+
+    drag([FINGER_ON.vegetables]);
+    act(() => jest.advanceTimersByTime(1000));
+
+    expect(onScrollToIndex.mock.calls).toEqual([[5]]);
+  });
+
   it('keeps the dots on screen while the section list is open and hides both afterwards', () => {
     const { scrollList } = renderDots({ hideFastScrollIndicatorTimeout: 1000 });
     scrollList();
