@@ -48,6 +48,53 @@ type FastScrollSectionTabHandle = {
   onViewableIndexChanged: (index: number) => void;
 };
 
+type TabButtonProps = {
+  index: number;
+  section: SectionFullData;
+  isActive: boolean;
+  onPressSection: (section: SectionFullData) => void;
+  onTabLayout: (index: number, ev: LayoutChangeEvent) => void;
+  tabBarItemStyle?: ViewStyle;
+  tabBarItemTextStyle?: TextStyle;
+  tabBarActiveItemStyle?: ViewStyle;
+  tabBarActiveItemTextStyle?: TextStyle;
+};
+
+/**
+ * One tab. Memoized so that a change of the active section re-renders only
+ * the two tabs whose `isActive` flips: on React Native 0.70 every re-render of
+ * a TouchableOpacity starts a native opacity animation.
+ */
+const FastScrollSectionTabButton = React.memo(
+  ({
+    index,
+    section,
+    isActive,
+    onPressSection,
+    onTabLayout,
+    ...itemStyles
+  }: TabButtonProps) => {
+    const onPress = useCallback(
+      () => onPressSection(section),
+      [onPressSection, section]
+    );
+    const onLayout = useCallback(
+      (ev: LayoutChangeEvent) => onTabLayout(index, ev),
+      [onTabLayout, index]
+    );
+
+    return (
+      <TouchableOpacity onPress={onPress} onLayout={onLayout}>
+        <FastScrollSectionTabItem
+          isActive={isActive}
+          section={section}
+          {...itemStyles}
+        />
+      </TouchableOpacity>
+    );
+  }
+);
+
 const FastScrollSectionTab = React.forwardRef<
   FastScrollSectionTabHandle,
   Props
@@ -100,18 +147,23 @@ const FastScrollSectionTab = React.forwardRef<
       })
     );
 
-    const onTabLayout = useCallback(
-      (index: number) => (ev: LayoutChangeEvent) => {
-        const { x, width, height } = ev.nativeEvent.layout;
-        tabsMeasurements.current[index] = {
-          left: x,
-          right: x + width,
-          width,
-          height,
-        };
-      },
-      []
-    );
+    const onTabLayout = useCallback((index: number, ev: LayoutChangeEvent) => {
+      const { x, width, height } = ev.nativeEvent.layout;
+      tabsMeasurements.current[index] = {
+        left: x,
+        right: x + width,
+        width,
+        height,
+      };
+    }, []);
+
+    // Stable across renders so a tab only re-renders when its own props
+    // change; reads the latest onScrollToIndex when a tab is tapped.
+    const onScrollToIndexRef = useRef(props.onScrollToIndex);
+    onScrollToIndexRef.current = props.onScrollToIndex;
+    const onPressSection = useCallback((section: SectionFullData) => {
+      onScrollToIndexRef.current(section.index);
+    }, []);
 
     const onTabContainerLayout = useCallback((ev: LayoutChangeEvent) => {
       const { x, width, height } = ev.nativeEvent.layout;
@@ -146,27 +198,20 @@ const FastScrollSectionTab = React.forwardRef<
             onLayout={onTabContainerLayout}
             style={[styles.tabBar, tabBarStyle]}
           >
-            {sections.map((section, index) => {
-              const isActive =
-                section.sectionIndex === currentSection?.sectionIndex;
-
-              return (
-                <TouchableOpacity
-                  onPress={() => props.onScrollToIndex(section.index)}
-                  key={index}
-                  onLayout={onTabLayout(index)}
-                >
-                  <FastScrollSectionTabItem
-                    isActive={isActive}
-                    section={section}
-                    tabBarActiveItemStyle={props.tabBarActiveItemStyle}
-                    tabBarActiveItemTextStyle={props.tabBarActiveItemTextStyle}
-                    tabBarItemStyle={props.tabBarItemStyle}
-                    tabBarItemTextStyle={props.tabBarItemTextStyle}
-                  />
-                </TouchableOpacity>
-              );
-            })}
+            {sections.map((section, index) => (
+              <FastScrollSectionTabButton
+                key={index}
+                index={index}
+                section={section}
+                isActive={section.sectionIndex === currentSection?.sectionIndex}
+                onPressSection={onPressSection}
+                onTabLayout={onTabLayout}
+                tabBarActiveItemStyle={props.tabBarActiveItemStyle}
+                tabBarActiveItemTextStyle={props.tabBarActiveItemTextStyle}
+                tabBarItemStyle={props.tabBarItemStyle}
+                tabBarItemTextStyle={props.tabBarItemTextStyle}
+              />
+            ))}
           </View>
         </ScrollView>
       </View>
