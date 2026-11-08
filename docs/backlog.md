@@ -64,15 +64,145 @@ instead of reaching the top or the bottom. Clamp to 0..1 instead.
 or an empty string would be better. Whatever changes, `createFullSectionData`
 must keep spreading unknown fields of `stickyHeaderIndicesWithData` through.
 
+### The dots' thumb goes back to the first dot each time the bar shows
+
+[FastScrollSectionDots.tsx:230](../src/FastScrollSectionDots/FastScrollSectionDots.tsx#L230):
+the bar is unmounted while hidden (`{visible && ...}`), so:
+
+- `onViewableIndexChanged` is dropped while the bar is hidden, because
+  `fastScrollSectionDotsBarRef.current` is `null`
+  ([line 149](../src/FastScrollSectionDots/FastScrollSectionDots.tsx#L149)).
+- When the bar mounts again, `pointStylePositionY` starts at 0, so the thumb
+  sits on the first dot.
+
+Apps show the bar from `onScroll` but usually debounce `onViewableIndexChanged`
+until the list stops, so during a fling the thumb may point at the first section
+the whole time. Not confirmed on a device yet. The fix is the one in "The dots
+bar remounts every time it shows" below.
+
+### The section list can hide while the finger is still on the dots
+
+[FastScrollSectionFullList.tsx:73-88](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L73-L88):
+the list hides 3 s after the last `show()`, and `show()` only runs while the
+finger moves. Holding the finger still on the dots for 3 s hides the list and
+unlocks the bar mid-touch. Lock the list's timer from the pan's `onBegin` and
+start it from `onFinalize` instead of refreshing it per frame. Best done
+together with "Dragging the dots does work on every frame" below. Not confirmed
+on a device yet.
+
 ## Performance
 
-### The indicator starts a new timer on every scroll frame
+None of these grows memory over time: they cost CPU and short-lived garbage.
+The only leak-like issue is "Timers are not cleared on unmount" above, and even
+those timers release their closures once they fire (3 s at most).
 
-[FastScrollIndicator.tsx:258](../src/FastScrollIndicator/FastScrollIndicator.tsx#L258):
-every `onScrollToOffsetPercentage` call runs `showFastScrollBar()`, which calls
-`setVisible(true)` and clears and sets a `setTimeout`. Apps call this on every
-`onScroll` frame. `useHideFlatBar` already skips the work when the bar is
-visible (`visibleRef`); the indicator could do the same.
+### The indicator reads shared values synchronously on every scroll frame
+
+[FastScrollIndicator.tsx:250-256](../src/FastScrollIndicator/FastScrollIndicator.tsx#L250-L256):
+`onScrollToOffsetPercentage` reads `disableOnScrollEvent.value` and
+`viewLayout.value` on the JS thread. On Reanimated 3 (native), reading `.value`
+from JS goes through `executeOnUIRuntimeSync` (`react-native-reanimated`
+`src/mutables.ts`): the JS thread blocks until the UI runtime answers. That
+happens twice per scroll frame, while the UI runtime is busy with the scroll.
+On Reanimated 2.12, which this repo develops against, the read is cheap, so
+tests do not show it.
+
+Possible fix: keep JS mirrors in refs (height from `onLayout`, a dragging flag
+set with `runOnJS` from `onBegin` / `onFinalize`), or move the whole update into
+one asynchronous `runOnUI` call.
+
+`FastScrollSectionDotsBar`'s handle does the same
+([FastScrollSectionDotsBar.tsx:266-271](../src/FastScrollSectionDots/FastScrollSectionDotsBar.tsx#L266-L271)),
+but it is called on viewability changes, not on every frame.
+
+### Dragging the dots does work on every frame, even without a section change
+
+[FastScrollSectionDotsBar.tsx:189-201](../src/FastScrollSectionDots/FastScrollSectionDotsBar.tsx#L189-L201):
+every pan update calls `runOnJS(onThumbPositionChange)`. On the JS thread that
+maps and searches the sections, then calls `onSectionChange`
+([FastScrollSectionDots.tsx:195-206](../src/FastScrollSectionDots/FastScrollSectionDots.tsx#L195-L206)).
+That call restarts the debounce, calls `lockScrollBarVisibility(true)`, and
+calls `show()`
+([FastScrollSectionFullList.tsx:103-124](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L103-L124)),
+which:
+
+- starts an animated `scrollToIndex` on the section list;
+- resets the 1 s rescroll timer and the 3 s hide timer.
+
+That is about four `clearTimeout` / `setTimeout` pairs and a restarted scroll
+animation per frame, even while the finger stays on one section.
+
+Possible fix: find the section in the worklet (`findSectionOnPosition` already
+is one), keep the last `sectionIndex` in a shared value, and only cross to JS
+when it changes. Lock the list's timer during the drag instead of refreshing it
+(see "The section list can hide while the finger is still on the dots" above).
+
+### Both components restart the hide timer on every scroll frame
+
+Apps call `onScrollToOffsetPercentage` on every `onScroll` frame, on both
+components:
+
+- `FastScrollIndicator`
+  ([line 258](../src/FastScrollIndicator/FastScrollIndicator.tsx#L258)) runs
+  `showFastScrollBar()`, which calls `setVisible(true)` and clears and sets a
+  `setTimeout`.
+- `useHideFlatBar`, used by the dots
+  ([utils.ts:116-125](../src/utils.ts#L116-L125)), skips the `setVisible` and
+  the spring when the bar is already visible, but still calls
+  `scheduleHideFastScrollbar()` first, so it also clears and sets a timer every
+  frame.
+
+Possible fix for both: one timer with a deadline. Each scroll only sets
+`hideAt = now + timeout`. When the timer fires before `hideAt`, it re-arms for
+the remaining time. The same applies to the section list's `onScroll`
+([FastScrollSectionFullList.tsx:158-160](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L158-L160)).
+
+### The dots bar remounts every time it shows
+
+[FastScrollSectionDots.tsx:230](../src/FastScrollSectionDots/FastScrollSectionDots.tsx#L230):
+each show mounts the bar again: the `GestureDetector`, its worklets, one view
+per dot, and a `measure` call. Meanwhile `useHideFlatBar` springs
+`translateFastScrollBarX` ([utils.ts:82](../src/utils.ts#L82)) on every show and
+hide, but nothing reads it.
+
+Possible fix: keep the bar mounted and slide it with `translateFastScrollBarX`
+(or drop that shared value). This also fixes "The dots' thumb goes back to the
+first dot each time the bar shows" above.
+
+### Unstable props rebuild the gestures
+
+- The indicator's `pan` depends on `scrollToOffsetPercentage`
+  ([FastScrollIndicator.tsx:154-221](../src/FastScrollIndicator/FastScrollIndicator.tsx#L154-L221)).
+  A production list wrapper passes an inline function and re-renders on every
+  scroll frame, so the `React.memo` is defeated and the Pan gesture, with its
+  worklets, is rebuilt and sent to the UI runtime on every frame. Read the
+  callback through a ref, as the dots already do for `onScrollToIndex`.
+- The default `thumbSize` is an object literal in the parameter list
+  ([FastScrollIndicator.tsx:95-99](../src/FastScrollIndicator/FastScrollIndicator.tsx#L95-L99)),
+  so `styles` ([line 281](../src/FastScrollIndicator/FastScrollIndicator.tsx#L281))
+  and `pointStyle` are rebuilt on every render. Hoist the default to a constant
+  and depend on `width` / `height` / `borderRadius`.
+- `onScrollToIndex` of the dots reaches `FastScrollSectionFullList` through
+  `fastScrollFullListOnScrollToIndex`
+  ([FastScrollSectionDots.tsx:208-219](../src/FastScrollSectionDots/FastScrollSectionDots.tsx#L208-L219)),
+  so a new callback re-renders every row and rebuilds its `Gesture.Tap()`.
+
+### Small ones
+
+- The indicator's `pointStyle`
+  ([FastScrollIndicator.tsx:223-237](../src/FastScrollIndicator/FastScrollIndicator.tsx#L223-L237))
+  starts two new `withSpring` (translateX, scale) on every `translateY` change,
+  that is every scroll frame, even when their target has not moved. Same for
+  the scale in `FastScrollSectionDotsBar`'s `pointStyle`.
+- `findNearestActiveSection` ([utils.ts:24-33](../src/utils.ts#L24-L33)) copies
+  and reverses the sections on every call. The tab bar calls it on every
+  viewability change. Sections are sorted by `index`, so a reverse loop or a
+  binary search needs no allocation.
+- `entering` / `exiting` animations are rebuilt on every render
+  ([FastScrollIndicator.tsx:284-290](../src/FastScrollIndicator/FastScrollIndicator.tsx#L284-L290),
+  [FastScrollSectionDots.tsx:156-162](../src/FastScrollSectionDots/FastScrollSectionDots.tsx#L156-L162)),
+  and `FastScrollSectionFullListItem` calls `StyleSheet.create` per row and
+  `isActive`. Cheap, but they can be module constants.
 
 ## Proposals
 
