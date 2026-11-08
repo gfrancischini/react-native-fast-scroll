@@ -245,6 +245,75 @@ describe('FastScrollSectionDots', () => {
     expect(getDotsScrollOffset()).toBe(0);
   });
 
+  it('stops scrolling its dots once the last one reaches the bottom of the bar', () => {
+    const { showListItem } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+      sections: Array.from({ length: 30 }, (_, i) => ({
+        index: i * 10,
+        text: `Aisle ${i}`,
+      })),
+    });
+    layoutDotsBar(300);
+
+    // 30 dots take 12 + 30 * (10 + 12) = 672px; in a 300px bar the strip
+    // scrolls at most 672 - 300 = 372px, which shows the last dot at the bottom.
+    showListItem(290);
+
+    expect(getDotsScrollOffset()).toBe(-372);
+  });
+
+  // The space the app gives the dots changes at runtime: the device rotates, a
+  // header above the list grows or shrinks. Each re-layout must keep the active
+  // dot in view and never leave the strip scrolled when all the dots fit.
+  it('shows every dot again once a bigger bar fits them all', () => {
+    const { showListItem } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+      sections: Array.from({ length: 30 }, (_, i) => ({
+        index: i * 10,
+        text: `Aisle ${i}`,
+      })),
+    });
+    layoutDotsBar(300);
+    showListItem(290);
+    expect(getDotsScrollOffset()).toBe(-372);
+
+    // The 672px strip fits a 700px bar.
+    layoutDotsBar(700);
+
+    expect(getDotsScrollOffset()).toBe(0);
+  });
+
+  it('keeps the active dot in view when the bar shrinks', () => {
+    const { showListItem } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+      sections: Array.from({ length: 30 }, (_, i) => ({
+        index: i * 10,
+        text: `Aisle ${i}`,
+      })),
+    });
+    layoutDotsBar(700);
+    showListItem(290);
+    expect(getDotsScrollOffset()).toBe(0);
+
+    // Aisle 29's dot spans 650..660 of the strip; in a 300px bar the strip
+    // scrolls to its end (-372), which shows it at 278..288.
+    layoutDotsBar(300);
+    expect(getDotsScrollOffset()).toBe(-372);
+
+    // Back to 700px, as when the device rotates back.
+    layoutDotsBar(700);
+    expect(getDotsScrollOffset()).toBe(0);
+  });
+
+  // A finger only reaches the dots through this area. Under Jest nothing is
+  // hit-tested, so its size stands in for "every dot can be touched".
+  it('lets the finger reach every dot, down to the last one', () => {
+    renderDots({ hideFastScrollIndicatorTimeout: 0 });
+
+    // 3 dots: 12 + 3 * (10 + 12) = 78px.
+    expect(getPanArea()).toHaveStyle({ height: 78 });
+  });
+
   it('keeps its dots still when they all fit', () => {
     const { showListItem } = renderDots({ hideFastScrollIndicatorTimeout: 0 });
     layoutDotsBar(300);
