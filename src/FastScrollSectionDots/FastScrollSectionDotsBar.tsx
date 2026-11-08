@@ -5,20 +5,22 @@ import { StyleSheet, ColorValue } from 'react-native';
 
 import Animated, {
   runOnJS,
-  useAnimatedGestureHandler,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
 import { springConfig, useComponentSize } from '../utils';
-import {
-  PanGestureHandler,
-  PanGestureHandlerGestureEvent,
-} from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { calculateYPosition, findSectionOnPosition } from './utils';
 import { snapPoint } from 'react-native-redash';
 import type { SectionDataWithDimensions } from '../types';
+
+/**
+ * Names the strip of dots the finger drags, both as the view's `testID` and as
+ * the pan gesture's test ID, so tests can find and drive it.
+ */
+const DOTS_TRACK_TEST_ID = 'fast-scroll-section-dots-track';
 
 export type Props = {
   /**
@@ -176,30 +178,20 @@ const FastScrollSectionDotsBar = React.forwardRef(
       [onSectionChange, sections]
     );
 
-    const onGestureEvent = useAnimatedGestureHandler<
-      PanGestureHandlerGestureEvent,
-      { y: number }
-    >({
-      onStart: (event) => {
-        // when the user start a gesture we avoid noise coming from the list
-        enableExternalScrollEvents.value = false;
+    const hitSlop = useMemo(() => {
+      if (side === 'left') {
+        return { horizontal: 20 };
+      } else {
+        return { horizontal: 20 };
+      }
+    }, [side]);
 
+    const pan = useMemo(() => {
+      /** The thumb follows the finger while it is down. */
+      const followFinger = (y: number) => {
+        'worklet';
         const { yPosition } = calculateYPosition({
-          y: event.y,
-          dotMargin,
-          dotSize,
-          sections,
-        });
-        pointStylePositionY.value = yPosition;
-        containerYOnPointStylePositionY.value = containerScrollY.value;
-
-        scale.value = thumbScaleOnPress;
-
-        runOnJS(onThumbPositionChange)(pointStylePositionY.value);
-      },
-      onActive: (event) => {
-        const { yPosition } = calculateYPosition({
-          y: event.y,
+          y,
           dotMargin,
           dotSize,
           sections,
@@ -208,26 +200,55 @@ const FastScrollSectionDotsBar = React.forwardRef(
         containerYOnPointStylePositionY.value = containerScrollY.value;
 
         runOnJS(onThumbPositionChange)(pointStylePositionY.value);
-      },
-      onFinish: (event) => {
-        // when the user finishes a gesture we allow receiving events from the list
-        enableExternalScrollEvents.value = true;
-        const { yPosition } = calculateYPosition({
-          y: event.y,
-          dotMargin,
-          dotSize,
-          sections,
-        });
-        pointStylePositionY.value = yPosition;
-        const snapPoints = sections.map((section) => section.center);
-        const newTranslate = snapPoint(yPosition, 0, snapPoints);
-        pointStylePositionY.value = newTranslate + dotSize / 2;
-        containerYOnPointStylePositionY.value = containerScrollY.value;
-        scale.value = 1;
+      };
 
-        runOnJS(onThumbPositionChange)(pointStylePositionY.value);
-      },
-    });
+      return (
+        Gesture.Pan()
+          .hitSlop(hitSlop)
+          .withTestId(DOTS_TRACK_TEST_ID)
+          // The finger touches the bar
+          .onBegin((event) => {
+            // when the user start a gesture we avoid noise coming from the list
+            enableExternalScrollEvents.value = false;
+            scale.value = thumbScaleOnPress;
+            followFinger(event.y);
+          })
+          // The finger has moved far enough to activate the pan, then moves on
+          .onStart((event) => followFinger(event.y))
+          .onUpdate((event) => followFinger(event.y))
+          // The finger lifts, whether the pan activated (a drag) or not (a tap)
+          .onFinalize((event) => {
+            // when the user finishes a gesture we allow receiving events from the list
+            enableExternalScrollEvents.value = true;
+            const { yPosition } = calculateYPosition({
+              y: event.y,
+              dotMargin,
+              dotSize,
+              sections,
+            });
+            pointStylePositionY.value = yPosition;
+            const snapPoints = sections.map((section) => section.center);
+            const newTranslate = snapPoint(yPosition, 0, snapPoints);
+            pointStylePositionY.value = newTranslate + dotSize / 2;
+            containerYOnPointStylePositionY.value = containerScrollY.value;
+            scale.value = 1;
+
+            runOnJS(onThumbPositionChange)(pointStylePositionY.value);
+          })
+      );
+    }, [
+      containerScrollY,
+      containerYOnPointStylePositionY,
+      dotMargin,
+      dotSize,
+      enableExternalScrollEvents,
+      hitSlop,
+      onThumbPositionChange,
+      pointStylePositionY,
+      scale,
+      sections,
+      thumbScaleOnPress,
+    ]);
 
     // Animation related to the thumb marker
     const pointStyle = useAnimatedStyle(() => {
@@ -290,22 +311,18 @@ const FastScrollSectionDotsBar = React.forwardRef(
       [dotColor, dotSize, scrollBarColor, thumbColor]
     );
 
-    const hitSlop = useMemo(() => {
-      if (side === 'left') {
-        return { horizontal: 20 };
-      } else {
-        return { horizontal: 20 };
-      }
-    }, [side]);
-
     return (
       <Animated.View
         onLayout={onLayout}
         ref={containerRef}
         style={[styles.scrollBar]}
       >
-        <PanGestureHandler hitSlop={hitSlop} onGestureEvent={onGestureEvent}>
-          <Animated.View collapsable={false} style={containerScrollStyle}>
+        <GestureDetector gesture={pan}>
+          <Animated.View
+            collapsable={false}
+            style={containerScrollStyle}
+            testID={DOTS_TRACK_TEST_ID}
+          >
             {sections.map((section, index) => {
               return (
                 <Animated.View
@@ -324,7 +341,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
             })}
             <Animated.View style={[styles.thumb, pointStyle]} />
           </Animated.View>
-        </PanGestureHandler>
+        </GestureDetector>
       </Animated.View>
     );
   }

@@ -7,7 +7,7 @@ import {
   getByGestureTestId,
 } from 'react-native-gesture-handler/jest-utils';
 import { FastScrollSectionDots, Section } from '../../index';
-import { drag, getPanHandler, touchDown } from '../../__fixtures__/gestures';
+import { drag, getPanArea, touchDown } from '../../__fixtures__/gestures';
 import {
   getDotsScrollOffset,
   getThumbPosition,
@@ -107,7 +107,7 @@ const layoutDotsBar = (height: number) => {
   measure.mockImplementationOnce((callback) =>
     callback(0, 0, 20, height, 0, 0)
   );
-  fireEvent(getPanHandler(), 'layout', {
+  fireEvent(getPanArea(), 'layout', {
     nativeEvent: { layout: { x: 0, y: 0, width: 20, height } },
   });
   expect(measure).toHaveBeenCalledTimes(1);

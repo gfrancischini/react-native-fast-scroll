@@ -1,48 +1,43 @@
+import { DeviceEventEmitter } from 'react-native';
 import { act, fireEvent, screen } from '@testing-library/react-native';
 import { State } from 'react-native-gesture-handler';
+import { getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 /**
- * The view wrapped by the component's `PanGestureHandler`. Under Jest the
- * handler hands its child `handlerType`/`handlerTag` props, and the components
- * expose no `testID`, so this is the documented `UNSAFE_*` exception
- * (docs/unit-testing.md -> Gestures).
+ * The view the finger drags: the track of `FastScrollIndicator` or the strip of
+ * the dots bar. Each carries a `testID` ending in `-track`, and its pan gesture
+ * has the same test ID. These views render no text and have no role, so the
+ * test ID is the only way to reach them (docs/unit-testing.md -> Gestures).
  */
-export const getPanHandler = () => {
-  const [handler] = screen.UNSAFE_getAllByProps({
-    handlerType: 'PanGestureHandler',
-  });
-  if (!handler) {
-    throw new Error('No PanGestureHandler is rendered');
-  }
-  return handler;
-};
+export const getPanArea = () => screen.getByTestId(/-track$/);
 
 /** Gives the gesture area a size, as the native layout pass would. */
 export const layoutPanArea = (height: number, width = 20) => {
-  fireEvent(getPanHandler(), 'layout', {
+  fireEvent(getPanArea(), 'layout', {
     nativeEvent: { layout: { x: 0, y: 0, width, height } },
   });
 };
 
 /**
- * Sends one pan event the way RNGH delivers it on a device to a Reanimated
- * `useAnimatedGestureHandler`: state changes and moves alike go through
- * `onGestureHandlerEvent`, the channel the worklet is registered on.
- *
- * RNGH's own `fireGestureHandler` sends state changes to
- * `onHandlerStateChange` instead, which these components do not set, so with
- * it `onStart` / `onFinish` never run.
+ * Sends one pan event the way RNGH delivers it from a device: a state change
+ * (it carries `oldState`) or a move while active (it does not). RNGH's own
+ * `fireGestureHandler` sends a whole gesture at once, from touch down to lift,
+ * so a test could not hold the finger down in between. This uses the same
+ * channel it does, one event at a time.
  */
 const sendPanEvent = (event: { state: State; oldState?: State; y: number }) => {
-  const handler = getPanHandler();
+  const { testID } = getPanArea().props;
+  const pan = getByGestureTestId(testID);
+  const eventName =
+    event.oldState === undefined
+      ? 'onGestureHandlerEvent'
+      : 'onGestureHandlerStateChange';
   act(() => {
-    fireEvent(handler, 'onGestureHandlerEvent', {
-      nativeEvent: {
-        handlerTag: handler.props.handlerTag,
-        numberOfPointers: 1,
-        x: 0,
-        ...event,
-      },
+    DeviceEventEmitter.emit(eventName, {
+      handlerTag: pan.handlerTag,
+      numberOfPointers: 1,
+      x: 0,
+      ...event,
     });
   });
 };

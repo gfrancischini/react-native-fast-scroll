@@ -6,22 +6,26 @@ import React, {
   useMemo,
 } from 'react';
 import { StyleSheet, ColorValue } from 'react-native';
-import {
-  PanGestureHandler,
-  PanGestureHandlerGestureEvent,
-} from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   SlideInLeft,
   SlideInRight,
   SlideOutLeft,
   SlideOutRight,
-  useAnimatedGestureHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
 import { springConfig } from '../utils';
+
+/**
+ * Names the track the finger drags, both as the view's `testID` and as the pan
+ * gesture's test ID, so tests can find and drive it.
+ */
+const INDICATOR_TRACK_TEST_ID = 'fast-scroll-indicator-track';
+
+const HIT_SLOP = { horizontal: 20 };
 
 export type FastScrollIndicatorProps = {
   /**
@@ -110,12 +114,12 @@ export const FastScrollIndicator = React.forwardRef(
 
     const viewLayout = useSharedValue({ x: 0, y: 0, height: 0, width: 0 });
 
-    const clearTimeoutFastScrollBar = () => {
+    const clearTimeoutFastScrollBar = useCallback(() => {
       if (translateFastScrollBarXTimer.current != null) {
         clearTimeout(translateFastScrollBarXTimer.current);
         translateFastScrollBarXTimer.current = null;
       }
-    };
+    }, []);
 
     const scheduleHideFastScrollbar = useCallback(() => {
       if (hideFastScrollIndicatorTimeout === 0) {
@@ -127,7 +131,7 @@ export const FastScrollIndicator = React.forwardRef(
         translateFastScrollBarXTimer.current = null;
         setVisible(false);
       }, hideFastScrollIndicatorTimeout);
-    }, [hideFastScrollIndicatorTimeout]);
+    }, [clearTimeoutFastScrollBar, hideFastScrollIndicatorTimeout]);
 
     const showFastScrollBar = useCallback(() => {
       setVisible(true);
@@ -147,54 +151,74 @@ export const FastScrollIndicator = React.forwardRef(
       showFastScrollBar,
     ]);
 
-    const processScrollJSThread = (offsetPercentage: number) => {
-      scrollToOffsetPercentage(offsetPercentage);
-    };
-
-    const processScroll = (offsetPercentage: number) => {
-      'worklet';
-      runOnJS(processScrollJSThread)(offsetPercentage);
-    };
-
-    const calculateYPosition = (y: number) => {
-      'worklet';
-      const minHeight = thumbSize.height / 2;
-      const maxHeight = viewLayout.value.height - thumbSize.height / 2;
-      const yPosition =
-        y < minHeight ? minHeight : y > maxHeight ? maxHeight : y;
-      const yPercentage = (yPosition - minHeight) / (maxHeight - minHeight);
-      return { yPosition: yPosition - thumbSize.height / 2, yPercentage };
-    };
-
-    const onGestureEvent = useAnimatedGestureHandler<
-      PanGestureHandlerGestureEvent,
-      { y: number }
-    >({
-      onStart: (event, ctx) => {
-        const { yPosition, yPercentage } = calculateYPosition(event.y);
-        disableOnScrollEvent.value = true;
-        translateY.value = yPosition;
-        ctx.y = translateY.value;
-        processScroll(yPercentage);
-        scale.value = thumbScaleOnPress;
-        runOnJS(clearTimeoutFastScrollBar)();
+    const processScrollJSThread = useCallback(
+      (offsetPercentage: number) => {
+        scrollToOffsetPercentage(offsetPercentage);
       },
-      onActive: (event) => {
-        const { yPosition, yPercentage } = calculateYPosition(event.y);
+      [scrollToOffsetPercentage]
+    );
+
+    const thumbHeight = thumbSize.height;
+
+    const pan = useMemo(() => {
+      const processScroll = (offsetPercentage: number) => {
+        'worklet';
+        runOnJS(processScrollJSThread)(offsetPercentage);
+      };
+
+      const calculateYPosition = (y: number) => {
+        'worklet';
+        const minHeight = thumbHeight / 2;
+        const maxHeight = viewLayout.value.height - thumbHeight / 2;
+        const yPosition =
+          y < minHeight ? minHeight : y > maxHeight ? maxHeight : y;
+        const yPercentage = (yPosition - minHeight) / (maxHeight - minHeight);
+        return { yPosition: yPosition - thumbHeight / 2, yPercentage };
+      };
+
+      /** The thumb follows the finger, and the list follows the thumb. */
+      const followFinger = (y: number) => {
+        'worklet';
+        const { yPosition, yPercentage } = calculateYPosition(y);
         translateY.value = yPosition;
         processScroll(yPercentage);
         disableOnScrollEvent.value = true;
         runOnJS(clearTimeoutFastScrollBar)();
-      },
-      onFinish: (event) => {
-        const { yPosition, yPercentage } = calculateYPosition(event.y);
-        processScroll(yPercentage);
-        translateY.value = yPosition;
-        scale.value = 1;
-        disableOnScrollEvent.value = false;
-        runOnJS(scheduleHideFastScrollbar)();
-      },
-    });
+      };
+
+      return (
+        Gesture.Pan()
+          .hitSlop(HIT_SLOP)
+          .withTestId(INDICATOR_TRACK_TEST_ID)
+          // The finger touches the track
+          .onBegin((event) => {
+            scale.value = thumbScaleOnPress;
+            followFinger(event.y);
+          })
+          // The finger has moved far enough to activate the pan, then moves on
+          .onStart((event) => followFinger(event.y))
+          .onUpdate((event) => followFinger(event.y))
+          // The finger lifts, whether the pan activated (a drag) or not (a tap)
+          .onFinalize((event) => {
+            const { yPosition, yPercentage } = calculateYPosition(event.y);
+            processScroll(yPercentage);
+            translateY.value = yPosition;
+            scale.value = 1;
+            disableOnScrollEvent.value = false;
+            runOnJS(scheduleHideFastScrollbar)();
+          })
+      );
+    }, [
+      clearTimeoutFastScrollBar,
+      disableOnScrollEvent,
+      processScrollJSThread,
+      scale,
+      scheduleHideFastScrollbar,
+      thumbHeight,
+      thumbScaleOnPress,
+      translateY,
+      viewLayout,
+    ]);
 
     const pointStyle = useAnimatedStyle(() => {
       return {
@@ -267,12 +291,10 @@ export const FastScrollIndicator = React.forwardRef(
 
     return (
       <>
-        <PanGestureHandler
-          onGestureEvent={onGestureEvent}
-          hitSlop={{ horizontal: 20 }}
-        >
+        <GestureDetector gesture={pan}>
           <Animated.View
             style={styles.container}
+            testID={INDICATOR_TRACK_TEST_ID}
             onLayout={(event) => (viewLayout.value = event.nativeEvent.layout)}
           >
             {visible && (
@@ -285,7 +307,7 @@ export const FastScrollIndicator = React.forwardRef(
               </Animated.View>
             )}
           </Animated.View>
-        </PanGestureHandler>
+        </GestureDetector>
       </>
     );
   }

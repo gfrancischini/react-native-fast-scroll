@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { act } from '@testing-library/react-native';
-import { getPanHandler } from './gestures';
+import { getPanArea } from './gestures';
 import { isHostNode, TestNode } from './testNode';
 
 /** One frame at 60 fps. */
@@ -34,7 +34,7 @@ const readTranslateY = (node: TestNode, what: string): number => {
 export const getThumbPosition = (): number => {
   act(() => jest.advanceTimersByTime(FRAME_MS));
 
-  const thumbs: TestNode[] = getPanHandler().findAll(
+  const thumbs: TestNode[] = getPanArea().findAll(
     (node: TestNode) =>
       isHostNode(node) &&
       StyleSheet.flatten(node.props.style)?.position === 'absolute'
@@ -56,12 +56,5 @@ export const getThumbPosition = (): number => {
 export const getDotsScrollOffset = (): number => {
   act(() => jest.advanceTimersByTime(1000));
 
-  const [strip] = getPanHandler().findAll(
-    (node: TestNode) =>
-      isHostNode(node) && node.props.handlerType === 'PanGestureHandler'
-  );
-  if (!strip) {
-    throw new Error('No dots strip on screen');
-  }
-  return readTranslateY(strip, 'dots strip');
+  return readTranslateY(getPanArea(), 'dots strip');
 };
