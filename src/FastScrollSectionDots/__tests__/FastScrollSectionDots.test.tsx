@@ -7,7 +7,12 @@ import {
   getByGestureTestId,
 } from 'react-native-gesture-handler/jest-utils';
 import { FastScrollSectionDots, Section, SectionTextProps } from '../../index';
-import { drag, getPanArea, touchDown } from '../../__fixtures__/gestures';
+import {
+  drag,
+  getPanArea,
+  getPanCallbacks,
+  touchDown,
+} from '../../__fixtures__/gestures';
 import {
   getDotsScrollOffset,
   getThumbPosition,
@@ -474,6 +479,64 @@ describe('FastScrollSectionDots', () => {
     act(() => jest.advanceTimersByTime(1000));
 
     expect(onScrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it('drags through the sections of the latest render', () => {
+    const onScrollToIndex = jest.fn();
+    const { rerender } = render(
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={SECTIONS}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={onScrollToIndex}
+      />
+    );
+    rerender(
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={[
+          { index: 0, text: 'Bakery' },
+          { index: 4, text: 'Frozen' },
+        ]}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={onScrollToIndex}
+      />
+    );
+
+    // Two dots now: the finger past the last one picks the second section,
+    // and the thumb settles on the second dot.
+    drag([FINGER_ON.fruits, FINGER_ON.dairy]);
+    act(() => jest.advanceTimersByTime(1000));
+
+    expect(getThumbPosition()).toBe(THUMB_ON.vegetables);
+    expect(onScrollToIndex.mock.calls).toEqual([[4]]);
+    expect(screen.getByText('Frozen')).toBeOnTheScreen();
+  });
+
+  // On a device, each rebuilt pan gesture hands Reanimated new worklets, and
+  // Reanimated holds the JS functions they call (and copies the values they
+  // read) from native code. Apps rebuild their sections and callbacks on
+  // every render, and a pan rebuilt with them kept those renders alive.
+  // Jest cannot measure that leak; keeping the pan's callbacks the same
+  // objects is what prevents it.
+  it('keeps the same pan callbacks while the app passes new sections and callbacks on every render', () => {
+    // New section objects with new label components, and a new inline
+    // onScrollToIndex, each time, as an app's render creates them.
+    const dotsFromRender = () => (
+      <FastScrollSectionDots
+        stickyHeaderIndicesWithData={SECTIONS.map((section) => ({
+          ...section,
+          text: activeAwareLabel(String(section.text)),
+        }))}
+        hideFastScrollIndicatorTimeout={0}
+        onScrollToIndex={(index) => index}
+      />
+    );
+    const { rerender } = render(dotsFromRender());
+    const callbacks = getPanCallbacks();
+
+    rerender(dotsFromRender());
+    rerender(dotsFromRender());
+
+    expect(getPanCallbacks()).toBe(callbacks);
   });
 
   it('scrolls the list to the first item of a section tapped in the section list', () => {

@@ -1,6 +1,6 @@
 import type { SectionFullData } from '../types';
 
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, ColorValue } from 'react-native';
 
 import Animated, {
@@ -174,15 +174,33 @@ const FastScrollSectionDotsBar = React.forwardRef(
       };
     });
 
-    const onThumbPositionChange = useCallback(
-      (positionY: number) => {
-        const section = findSectionOnPosition(positionY, sections);
-        if (section) {
-          onSectionChange(section);
-        }
-      },
-      [onSectionChange, sections]
+    // The pan gesture below calls onThumbPositionChange through runOnJS, and on
+    // a device Reanimated holds every function a worklet calls, and a copy of
+    // every value it reads, from native code. So the pan is built once and
+    // captures no app data: the function reads the sections and the callback
+    // through refs, and the worklets read only the dots' positions, from a
+    // shared value. Rebuilt on each render, it kept each render of the app's
+    // screen alive through the sections and callbacks it closed over.
+    const sectionsRef = useRef(sections);
+    sectionsRef.current = sections;
+    const onSectionChangeRef = useRef(onSectionChange);
+    onSectionChangeRef.current = onSectionChange;
+
+    const onThumbPositionChange = useCallback((positionY: number) => {
+      const section = findSectionOnPosition(positionY, sectionsRef.current);
+      if (section) {
+        onSectionChangeRef.current(section);
+      }
+    }, []);
+
+    const dotPositions = useMemo(
+      () => sections.map(({ sectionIndex, y }) => ({ sectionIndex, y })),
+      [sections]
     );
+    const dotPositionsValue = useSharedValue(dotPositions);
+    useEffect(() => {
+      dotPositionsValue.value = dotPositions;
+    }, [dotPositions, dotPositionsValue]);
 
     const pan = useMemo(() => {
       /** The thumb follows the finger while it is down. */
@@ -192,7 +210,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
           y,
           dotMargin,
           dotSize,
-          sections,
+          sections: dotPositionsValue.value,
         });
         pointStylePositionY.value = yPosition;
         containerYOnPointStylePositionY.value = containerScrollY.value;
@@ -222,10 +240,10 @@ const FastScrollSectionDotsBar = React.forwardRef(
               y: event.y,
               dotMargin,
               dotSize,
-              sections,
+              sections: dotPositionsValue.value,
             });
             pointStylePositionY.value = yPosition;
-            const snapPoints = sections.map((section) => section.y);
+            const snapPoints = dotPositionsValue.value.map((dot) => dot.y);
             const newTranslate = snapPoint(yPosition, 0, snapPoints);
             pointStylePositionY.value = newTranslate + dotSize / 2;
             containerYOnPointStylePositionY.value = containerScrollY.value;
@@ -238,12 +256,12 @@ const FastScrollSectionDotsBar = React.forwardRef(
       containerScrollY,
       containerYOnPointStylePositionY,
       dotMargin,
+      dotPositionsValue,
       dotSize,
       enableExternalScrollEvents,
       onThumbPositionChange,
       pointStylePositionY,
       scale,
-      sections,
       thumbScaleOnPress,
     ]);
 

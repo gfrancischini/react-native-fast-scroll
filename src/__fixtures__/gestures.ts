@@ -11,6 +11,27 @@ import { getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
  */
 export const getPanArea = () => screen.getByTestId(/-track$/);
 
+/**
+ * When a re-render hands `GestureDetector` a rebuilt gesture, it applies the new
+ * callbacks on the next tick (`setImmediate`), which fake timers hold back. On a
+ * device that tick always passes before the next touch, so every pan event
+ * lets it pass first. Advancing by 0 ms fires nothing scheduled later.
+ */
+const applyPendingGestureUpdates = () => {
+  act(() => jest.advanceTimersByTime(0));
+};
+
+/**
+ * The callbacks of the pan gesture, as `GestureDetector` last applied them.
+ * They are the worklets Reanimated receives on a device: a new object here
+ * means the gesture was rebuilt and Reanimated got a new set, each holding the
+ * JS functions it calls.
+ */
+export const getPanCallbacks = () => {
+  applyPendingGestureUpdates();
+  return getByGestureTestId(getPanArea().props.testID).handlers;
+};
+
 /** Gives the gesture area a size, as the native layout pass would. */
 export const layoutPanArea = (height: number, width = 20) => {
   fireEvent(getPanArea(), 'layout', {
@@ -26,6 +47,7 @@ export const layoutPanArea = (height: number, width = 20) => {
  * channel it does, one event at a time.
  */
 const sendPanEvent = (event: { state: State; oldState?: State; y: number }) => {
+  applyPendingGestureUpdates();
   const { testID } = getPanArea().props;
   const pan = getByGestureTestId(testID);
   const eventName =
