@@ -4,4 +4,5 @@ export type RootStackParamList = {
   Debug: undefined;
   Performance: undefined;
   StaleCallback: undefined;
+  DotsLayout: undefined;
 };

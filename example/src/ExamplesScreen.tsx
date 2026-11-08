@@ -23,6 +23,7 @@ export const ExamplesScreen = () => {
     { title: 'Categories', destination: 'Categories' },
     { title: 'Performance', destination: 'Performance' },
     { title: 'StaleCallback', destination: 'StaleCallback' },
+    { title: 'DotsLayout', destination: 'DotsLayout' },
   ];
   return (
     <>
