@@ -1,7 +1,12 @@
 import type { SectionFullData } from '../types';
 
 import React, { useRef, useState, useMemo, useCallback } from 'react';
-import { ColorValue, ListRenderItemInfo, StyleSheet } from 'react-native';
+import {
+  ColorValue,
+  FlatList,
+  ListRenderItemInfo,
+  StyleSheet,
+} from 'react-native';
 
 import Animated, { SlideInLeft, SlideOutLeft } from 'react-native-reanimated';
 import { useTimer } from '../utils';
@@ -44,9 +49,20 @@ const FastScrollSectionFullList = React.forwardRef(
     { sections, scrollToIndex, onHide, backgroundColor }: Props,
     forwardedRef: React.ForwardedRef<FastScrollSectionFullListHandle>
   ) => {
-    const flatListRef = useRef<React.ElementRef<
-      typeof Animated.FlatList<SectionFullData>
-    > | null>(null);
+    /**
+     * `Animated.FlatList` forwards its ref to React Native's `FlatList`, but
+     * Reanimated 2.12's typings declare the instance as a `View`
+     * (`interface FlatList<T> extends View<T>`), which has no `scrollToIndex`.
+     * Hold the ref as what it is at runtime.
+     */
+    const flatListRef = useRef<FlatList<SectionFullData> | null>(null);
+    const setFlatListRef = useCallback(
+      (list: Animated.FlatList<SectionFullData> | null) => {
+        flatListRef.current =
+          list as unknown as FlatList<SectionFullData> | null;
+      },
+      []
+    );
 
     const [activeIndexVisible, setActiveIndexVisible] = useState(false);
 
@@ -89,8 +105,6 @@ const FastScrollSectionFullList = React.forwardRef(
           setActiveSection(section);
           startShowActiveIndexVisibleTimer();
           if (flatListRef.current) {
-            // TODO: Why is this wrong?
-            // @ts-ignore
             flatListRef.current.scrollToIndex({
               index: section.sectionIndex,
               viewPosition: 0.5,
@@ -101,7 +115,6 @@ const FastScrollSectionFullList = React.forwardRef(
             }
             rescrollTimeout.current = setTimeout(() => {
               if (flatListRef.current) {
-                // @ts-ignore
                 flatListRef.current.scrollToIndex({
                   index: section.sectionIndex,
                   viewPosition: 0.5,
@@ -136,7 +149,7 @@ const FastScrollSectionFullList = React.forwardRef(
       <Animated.FlatList
         entering={SlideInLeft}
         exiting={SlideOutLeft}
-        ref={flatListRef}
+        ref={setFlatListRef}
         style={styles.list}
         contentContainerStyle={styles.listContainer}
         onScrollToIndexFailed={() => {

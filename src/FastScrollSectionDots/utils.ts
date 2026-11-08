@@ -1,4 +1,4 @@
-import type { SectionDataWithDimensions } from '../types';
+import type { SectionDataWithDimensions, SectionFullData } from '../types';
 import { snapPoint } from 'react-native-redash';
 
 export const calculateYPosition = ({
@@ -8,9 +8,9 @@ export const calculateYPosition = ({
   dotMargin,
 }: {
   y: number;
-  sections: any;
-  dotSize: any;
-  dotMargin: any;
+  sections: Pick<SectionFullData, 'sectionIndex'>[];
+  dotSize: number;
+  dotMargin: number;
 }) => {
   'worklet';
   const minHeight = dotSize / 2;

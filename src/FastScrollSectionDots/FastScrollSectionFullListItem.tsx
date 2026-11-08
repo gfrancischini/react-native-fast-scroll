@@ -34,21 +34,20 @@ function FastScrollSectionFullListItem({
   isActive,
   scrollToIndex,
 }: Props) {
-  const finalText = useMemo(
-    () =>
-      typeof item.text === 'string' ? (
-        item.text
-      ) : typeof item.text === 'function' ? (
-        <item.text section={item} isActive={isActive} />
-      ) : typeof item.text === 'object' ? (
-        // TODO: Fix this typing of component
-        //@ts-ignore
-        <item.text section={item} isActive={isActive} />
-      ) : (
-        'Invalid'
-      ),
-    [isActive, item]
-  );
+  const finalText = useMemo(() => {
+    const { text: SectionText } = item;
+    if (typeof SectionText === 'string') {
+      return SectionText;
+    }
+    // A component is a function, or an object for `React.memo` / `forwardRef`
+    if (
+      typeof SectionText === 'function' ||
+      (typeof SectionText === 'object' && SectionText !== null)
+    ) {
+      return <SectionText section={item} isActive={isActive} />;
+    }
+    return 'Invalid';
+  }, [isActive, item]);
 
   const styles = useMemo(
     () =>
