@@ -6,7 +6,7 @@ import {
   fireGestureHandler,
   getByGestureTestId,
 } from 'react-native-gesture-handler/jest-utils';
-import { FastScrollSectionDots, Section } from '../../index';
+import { FastScrollSectionDots, Section, SectionTextProps } from '../../index';
 import { drag, getPanArea, touchDown } from '../../__fixtures__/gestures';
 import {
   getDotsScrollOffset,
@@ -275,6 +275,28 @@ describe('FastScrollSectionDots', () => {
     expect(screen.getByText('Fruits')).toBeOnTheScreen();
     expect(screen.getByText('Vegetables (active)')).toBeOnTheScreen();
     expect(screen.getByText('Dairy')).toBeOnTheScreen();
+  });
+
+  it('renders a section label wrapped in React.memo in the section list', () => {
+    const AisleLabel = React.memo(function AisleLabel({
+      section,
+      isActive,
+    }: SectionTextProps) {
+      const name = `Aisle ${section.sectionIndex}`;
+      return <Text>{isActive ? `${name} (active)` : name}</Text>;
+    });
+    renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+      sections: [
+        { index: 0, text: AisleLabel },
+        { index: 5, text: AisleLabel },
+      ],
+    });
+
+    touchDown(FINGER_ON.fruits);
+
+    expect(screen.getByText('Aisle 0 (active)')).toBeOnTheScreen();
+    expect(screen.getByText('Aisle 1')).toBeOnTheScreen();
   });
 
   it('scrolls the list to the header of the last dragged section once the drag settles', () => {

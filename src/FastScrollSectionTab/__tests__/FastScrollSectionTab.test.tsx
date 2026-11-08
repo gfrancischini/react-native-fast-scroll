@@ -7,7 +7,7 @@ import {
   screen,
   userEvent,
 } from '@testing-library/react-native';
-import { FastScrollSectionTab, Section } from '../../index';
+import { FastScrollSectionTab, Section, SectionTextProps } from '../../index';
 import { isHostNode, TestNode } from '../../__fixtures__/testNode';
 
 type SectionLabel = Exclude<Section['text'], string>;
@@ -119,6 +119,22 @@ describe('FastScrollSectionTab', () => {
 
     expect(screen.getByText('Fruits (active)')).toBeOnTheScreen();
     expect(screen.getByText('Vegetables')).toBeOnTheScreen();
+  });
+
+  it('renders a tab label wrapped in React.memo', () => {
+    const AisleLabel = React.memo(function AisleLabel({
+      section,
+    }: SectionTextProps) {
+      return <Text>{`Aisle ${section.sectionIndex}`}</Text>;
+    });
+
+    renderTabs([
+      { index: 0, text: AisleLabel },
+      { index: 5, text: AisleLabel },
+    ]);
+
+    expect(screen.getByText('Aisle 0')).toBeOnTheScreen();
+    expect(screen.getByText('Aisle 1')).toBeOnTheScreen();
   });
 
   it('scrolls the tab bar to center the active tab, without scrolling past either end', () => {

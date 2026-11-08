@@ -19,11 +19,14 @@ function FastScrollSectionTabItem({
   tabBarActiveItemStyle,
   tabBarActiveItemTextStyle,
 }: Props) {
+  const { text: SectionText } = section;
   const title =
-    typeof section.text === 'string' ? (
-      section.text
-    ) : typeof section.text === 'function' ? (
-      <section.text section={section} isActive={isActive} />
+    typeof SectionText === 'string' ? (
+      SectionText
+    ) : // A component is a function, or an object for `React.memo` / `forwardRef`
+    typeof SectionText === 'function' ||
+      (typeof SectionText === 'object' && SectionText !== null) ? (
+      <SectionText section={section} isActive={isActive} />
     ) : null;
 
   return (

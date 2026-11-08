@@ -8,13 +8,27 @@ export type ScrollToIndex = (params: {
   viewPosition?: number | undefined;
 }) => void;
 
+/**
+ * The props a section's `text` component receives
+ */
+export type SectionTextProps = {
+  /**
+   * The section being rendered, with any extra fields the app put on it
+   */
+  section: SectionFullData;
+  /**
+   * If this section is the active one
+   */
+  isActive: boolean;
+};
+
 export type Section = {
-  text:
-    | string
-    | ((props: {
-        section: SectionFullData;
-        isActive: boolean;
-      }) => React.ReactElement | JSX.Element);
+  /**
+   * The section's label: a string, or a component that renders it from
+   * `SectionTextProps`. Any component works: a plain function, a class, or the
+   * result of `React.memo` / `React.forwardRef`.
+   */
+  text: string | React.ComponentType<SectionTextProps>;
   /**
    * The position of this section on the overall list
    */
