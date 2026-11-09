@@ -67,7 +67,18 @@ const renderDots = ({
   const showListItem = (index: number) =>
     act(() => ref.current?.onViewableIndexChanged(index));
 
-  return { onScrollToIndex, scrollList, showListItem };
+  /** The app renders the dots again with other sections. */
+  const replaceSections = (newSections: Section[]) =>
+    screen.rerender(
+      <FastScrollSectionDots
+        ref={ref}
+        stickyHeaderIndicesWithData={newSections}
+        hideFastScrollIndicatorTimeout={hideFastScrollIndicatorTimeout}
+        onScrollToIndex={onScrollToIndex}
+      />
+    );
+
+  return { onScrollToIndex, scrollList, showListItem, replaceSections };
 };
 
 /**
@@ -366,6 +377,19 @@ describe('FastScrollSectionDots', () => {
     scrollList();
 
     expect(getThumbPosition()).toBe(THUMB_ON.dairy);
+  });
+
+  it('shows the thumb on a dot of the current sections when the app replaced them while the dots were hidden', () => {
+    const { scrollList, showListItem, replaceSections } = renderDots({
+      hideFastScrollIndicatorTimeout: 1000,
+    });
+    showListItem(250);
+
+    // Dairy, the third section, is gone; item 250 now falls under Vegetables.
+    replaceSections(SECTIONS.slice(0, 2));
+    scrollList();
+
+    expect(getThumbPosition()).toBe(THUMB_ON.vegetables);
   });
 
   it('opens the section list with the dragged section marked active', () => {
