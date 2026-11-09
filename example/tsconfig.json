@@ -4,12 +4,19 @@
     "paths": {
       "react-native-fast-scroll": [
         "../src/index"
-      ]
+      ],
+      "react": ["./node_modules/@types/react"],
+      "react-native": ["./node_modules/react-native"],
+      "react-native-gesture-handler": [
+        "./node_modules/react-native-gesture-handler"
+      ],
+      "react-native-reanimated": ["./node_modules/react-native-reanimated"],
+      "react-native-redash": ["./node_modules/react-native-redash"],
+      "@shopify/flash-list": ["./node_modules/@shopify/flash-list"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "esModuleInterop": true,
-    "importsNotUsedAsValues": "error",
     "forceConsistentCasingInFileNames": true,
     "jsx": "react",
     "lib": [

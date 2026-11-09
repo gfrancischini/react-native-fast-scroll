@@ -49,6 +49,38 @@ instead of reaching the top or the bottom. Clamp to 0..1 instead.
 or an empty string would be better. Whatever changes, `createFullSectionData`
 must keep spreading unknown fields of `stickyHeaderIndicesWithData` through.
 
+## Reanimated 3 / New Architecture
+
+Found by running the example app on Expo SDK 52 (Reanimated 3.16, Gesture
+Handler 2.20, New Architecture), closer to production than the dev
+dependencies.
+
+### Every section list row logs a gesture-handler error
+
+[FastScrollSectionFullListItem.tsx:92-97](../src/FastScrollSectionDots/FastScrollSectionFullListItem.tsx#L92-L97):
+the row's `GestureDetector` wraps a `Text`, and on the New Architecture Gesture
+Handler logs "GestureDetector has received a child that may get
+view-flattened" for each row, as a red error in development. Tapping a row
+still scrolls the list on Android. Wrapping the `Text` in
+`<View collapsable={false}>` is what the message asks for. The indicator's
+track view has no `collapsable={false}` either.
+
+### `src/` does not typecheck against Reanimated 3's types
+
+With the example's peers (`cd example && npx tsc --noEmit`), two ref types fail:
+`useComponentSize(containerRef)` in
+[FastScrollSectionDotsBar.tsx:153](../src/FastScrollSectionDots/FastScrollSectionDotsBar.tsx#L153),
+and the `Animated.FlatList` callback ref in
+[FastScrollSectionFullList.tsx:193](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L193).
+Apps are not affected (they read `lib/typescript`, and `skipLibCheck` skips
+it), but the published `.d.ts` is built against 2.12 only.
+
+### A drag on the dots sometimes scrolls the list instead
+
+Not confirmed. On the Android emulator, two of six drags on the dots bar,
+right after scrolling the list, scrolled the list and did not open the section
+list; the other four worked. Check it again before treating it as a bug.
+
 ## Performance
 
 None of these grows memory over time: they cost CPU and short-lived garbage.
