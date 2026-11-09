@@ -25,6 +25,7 @@ export const ExamplesScreen = () => {
     { title: 'StaleCallback', destination: 'StaleCallback' },
     { title: 'DotsLayout', destination: 'DotsLayout' },
     { title: 'MemoryLeak', destination: 'MemoryLeak' },
+    { title: 'ReplaceSections', destination: 'ReplaceSections' },
   ];
   return (
     <>
