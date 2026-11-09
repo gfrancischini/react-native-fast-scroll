@@ -140,8 +140,11 @@ const FastScrollSectionDots = React.forwardRef(
     // The bar unmounts while hidden, and apps show it from onScroll but usually
     // report the first visible item only once the list stops. The last section
     // reported or dragged to is kept here so the thumb starts on it each time
-    // the bar mounts again.
-    const activeSectionIndexRef = useRef<number | undefined>(undefined);
+    // the bar mounts again. It holds a list index, not the section's ordinal,
+    // and is matched against the sections when the bar mounts: the app may
+    // replace the sections meanwhile, and an old ordinal could then point past
+    // the last dot.
+    const activeListIndexRef = useRef<number | undefined>(undefined);
 
     React.useImperativeHandle(
       forwardedRef,
@@ -151,9 +154,9 @@ const FastScrollSectionDots = React.forwardRef(
         },
 
         onViewableIndexChanged(index: number) {
+          activeListIndexRef.current = index;
           const section = findNearestActiveSection(sections, index);
           if (section) {
-            activeSectionIndexRef.current = section.sectionIndex;
             fastScrollSectionDotsBarRef.current?.onSectionChange(section);
           }
         },
@@ -212,7 +215,7 @@ const FastScrollSectionDots = React.forwardRef(
     const onSectionChange = useCallback(
       (section: SectionFullData) => {
         debouncedScrollToIndexRef.current(section.index);
-        activeSectionIndexRef.current = section.sectionIndex;
+        activeListIndexRef.current = section.index;
 
         if (section) {
           // locing the panel as we are opening the full list
@@ -243,6 +246,12 @@ const FastScrollSectionDots = React.forwardRef(
       return null;
     }
 
+    const initialSectionIndex =
+      activeListIndexRef.current === undefined
+        ? undefined
+        : findNearestActiveSection(sections, activeListIndexRef.current)
+            ?.sectionIndex;
+
     return (
       <View style={[styles.container]} pointerEvents={'box-none'}>
         {visible && (
@@ -263,7 +272,7 @@ const FastScrollSectionDots = React.forwardRef(
               onSectionChange={onSectionChange}
               onFingerDown={holdSectionList}
               onFingerUp={releaseSectionList}
-              initialSectionIndex={activeSectionIndexRef.current}
+              initialSectionIndex={initialSectionIndex}
             />
           </Animated.View>
         )}
