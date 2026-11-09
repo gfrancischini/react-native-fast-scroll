@@ -48,6 +48,12 @@ export type FastScrollSectionFullListHandle = {
    * @param index The first index
    */
   show: (activeSection: SectionFullData) => void;
+
+  /**
+   * Keeps the list open while `held` (a finger rests on the dots), then
+   * closes it after the usual delay once released.
+   */
+  hold: (held: boolean) => void;
 };
 
 const FastScrollSectionFullList = React.forwardRef(
@@ -89,9 +95,20 @@ const FastScrollSectionFullList = React.forwardRef(
       };
     }, [onHide]);
 
-    const [startShowActiveIndexVisibleTimer] = useTimer(
+    const [startHideTimer, clearHideTimer, scheduleHideTimer] = useTimer(
       activeIndexVisibleCallbacks
     );
+
+    // The list closes a while after the last show() or scroll. show() only
+    // runs while the finger moves on the dots, so a finger resting on them
+    // holds the list open instead.
+    const held = useRef(false);
+    const startShowActiveIndexVisibleTimer = useCallback(() => {
+      startHideTimer();
+      if (held.current) {
+        clearHideTimer();
+      }
+    }, [clearHideTimer, startHideTimer]);
 
     const closeAndScrollToIndex = useCallback(
       (index: number) => {
@@ -137,6 +154,14 @@ const FastScrollSectionFullList = React.forwardRef(
                 });
               }
             }, 1000);
+          }
+        },
+        hold(isHeld: boolean) {
+          held.current = isHeld;
+          if (isHeld) {
+            clearHideTimer();
+          } else {
+            scheduleHideTimer();
           }
         },
       })

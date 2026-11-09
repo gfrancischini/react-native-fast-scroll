@@ -66,6 +66,12 @@ export type Props = {
    */
   onSectionChange: (section: SectionFullData) => void;
 
+  /** A finger touches the dots: called before the first `onSectionChange`. */
+  onFingerDown: () => void;
+
+  /** The finger lifts off the dots: called after the last `onSectionChange`. */
+  onFingerUp: () => void;
+
   sections: SectionFullData[];
 };
 
@@ -87,6 +93,8 @@ const FastScrollSectionDotsBar = React.forwardRef(
       scrollBarColor = 'rgba(65, 64, 66, 0.9)',
       dotMargin = 12,
       onSectionChange,
+      onFingerDown,
+      onFingerUp,
       ...props
     }: Props,
     forwardedRef: React.ForwardedRef<FastScrollSectionDotsBarHandle>
@@ -174,10 +182,10 @@ const FastScrollSectionDotsBar = React.forwardRef(
       };
     });
 
-    // The pan gesture below calls onThumbPositionChange through runOnJS, and on
+    // The pan gesture below calls JS functions through runOnJS, and on
     // a device Reanimated holds every function a worklet calls, and a copy of
     // every value it reads, from native code. So the pan is built once and
-    // captures no app data: the function reads the sections and the callback
+    // captures no app data: the functions read the sections and the callbacks
     // through refs, and the worklets read only the dots' positions, from a
     // shared value. Rebuilt on each render, it kept each render of the app's
     // screen alive through the sections and callbacks it closed over.
@@ -186,12 +194,19 @@ const FastScrollSectionDotsBar = React.forwardRef(
     const onSectionChangeRef = useRef(onSectionChange);
     onSectionChangeRef.current = onSectionChange;
 
+    const onFingerDownRef = useRef(onFingerDown);
+    onFingerDownRef.current = onFingerDown;
+    const onFingerUpRef = useRef(onFingerUp);
+    onFingerUpRef.current = onFingerUp;
+
     const onThumbPositionChange = useCallback((positionY: number) => {
       const section = findSectionOnPosition(positionY, sectionsRef.current);
       if (section) {
         onSectionChangeRef.current(section);
       }
     }, []);
+    const fingerDown = useCallback(() => onFingerDownRef.current(), []);
+    const fingerUp = useCallback(() => onFingerUpRef.current(), []);
 
     const dotPositions = useMemo(
       () => sections.map(({ sectionIndex, y }) => ({ sectionIndex, y })),
@@ -227,6 +242,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
             // when the user start a gesture we avoid noise coming from the list
             enableExternalScrollEvents.value = false;
             scale.value = thumbScaleOnPress;
+            runOnJS(fingerDown)();
             followFinger(event.y);
           })
           // The finger has moved far enough to activate the pan, then moves on
@@ -250,6 +266,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
             scale.value = 1;
 
             runOnJS(onThumbPositionChange)(pointStylePositionY.value);
+            runOnJS(fingerUp)();
           })
       );
     }, [
@@ -259,6 +276,8 @@ const FastScrollSectionDotsBar = React.forwardRef(
       dotPositionsValue,
       dotSize,
       enableExternalScrollEvents,
+      fingerDown,
+      fingerUp,
       onThumbPositionChange,
       pointStylePositionY,
       scale,

@@ -653,6 +653,26 @@ describe('FastScrollSectionDots', () => {
     expect(screen.queryByText('Dairy')).not.toBeOnTheScreen();
   });
 
+  it('keeps the section list and the dots open while the finger rests on the dots', () => {
+    const { scrollList } = renderDots({ hideFastScrollIndicatorTimeout: 1000 });
+    scrollList();
+
+    // The finger lands on a dot, moves to another, then stays still.
+    const finger = touchDown(FINGER_ON.fruits);
+    finger.moveTo(FINGER_ON.vegetables);
+    act(() => jest.advanceTimersByTime(10_000));
+    expect(screen.getByText('Vegetables')).toBeOnTheScreen();
+
+    // Once it lifts, the section list closes 3 s later, then the dots.
+    finger.lift();
+    act(() => jest.advanceTimersByTime(2999));
+    expect(screen.getByText('Vegetables')).toBeOnTheScreen();
+    act(() => jest.advanceTimersByTime(1));
+    expect(screen.queryByText('Vegetables')).not.toBeOnTheScreen();
+    act(() => jest.advanceTimersByTime(1000));
+    expect(isAnythingShown()).toBe(false);
+  });
+
   it('scrolls the open section list to center the section under the finger, and again a second later', () => {
     renderDots({ hideFastScrollIndicatorTimeout: 0 });
     drag([FINGER_ON.fruits]);
