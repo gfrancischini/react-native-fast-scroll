@@ -147,20 +147,41 @@ const FastScrollSectionFullList = React.forwardRef(
     // time, each batch growing its content, so a row far down is laid out
     // only later.
     const sectionToCenter = useRef<SectionFullData | null>(null);
-    const centerFailed = useRef(false);
+    // Why the last attempt did not center its row: the row was not laid out
+    // yet ('estimated': it jumped near it from the rows that were), or no row
+    // was ('unmeasured': there was nothing to estimate from).
+    const centerMiss = useRef<'estimated' | 'unmeasured' | null>(null);
+
+    // The list can report its content size before it lays its rows out, and
+    // laying them out need not change that size again, so a section that
+    // found no row to estimate from is tried again shortly, until the retry a
+    // second after show() takes over.
+    const centerRetryTimeout = useRef<NodeJS.Timeout | null>(null);
+    const cancelCenterRetry = useCallback(() => {
+      if (centerRetryTimeout.current) {
+        clearTimeout(centerRetryTimeout.current);
+        centerRetryTimeout.current = null;
+      }
+    }, []);
 
     // Without an animation: on Android, an animated scroll started while the
     // list is still laying out its rows does not move it.
     const centerPendingSection = useCallback(() => {
+      cancelCenterRetry();
       if (!sectionToCenter.current || !flatListRef.current) {
         return;
       }
-      centerFailed.current = false;
+      centerMiss.current = null;
       centerSection(sectionToCenter.current, false);
-      if (!centerFailed.current) {
+      if (!centerMiss.current) {
         sectionToCenter.current = null;
+      } else if (centerMiss.current === 'unmeasured') {
+        centerRetryTimeout.current = setTimeout(centerPendingSection, 50);
       }
-    }, [centerSection]);
+    }, [cancelCenterRetry, centerSection]);
+
+    // A screen can close before a retry runs.
+    useEffect(() => cancelCenterRetry, [cancelCenterRetry]);
 
     const listHeight = useRef(0);
     const onLayout = useCallback((event: LayoutChangeEvent) => {
@@ -178,10 +199,11 @@ const FastScrollSectionFullList = React.forwardRef(
         index: number;
         averageItemLength: number;
       }) => {
-        centerFailed.current = true;
         if (averageItemLength === 0) {
+          centerMiss.current = 'unmeasured';
           return;
         }
+        centerMiss.current = 'estimated';
         flatListRef.current?.scrollToOffset({
           offset: Math.max(
             0,
@@ -209,6 +231,7 @@ const FastScrollSectionFullList = React.forwardRef(
           }
           rescrollTimeout.current = setTimeout(() => {
             rescrollTimeout.current = null;
+            cancelCenterRetry();
             centerSection(section);
           }, 1000);
         },

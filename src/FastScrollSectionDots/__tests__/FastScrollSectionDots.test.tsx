@@ -785,6 +785,23 @@ describe('FastScrollSectionDots', () => {
     ]);
   });
 
+  // The list can report its content size before it lays its rows out, and
+  // laying them out need not change that size again.
+  it('centers the section under the finger when the section list lays its rows out after reporting its size', () => {
+    renderDots({ hideFastScrollIndicatorTimeout: 0 });
+
+    touchDown(FINGER_ON.dairy);
+    const scrollView = getSectionListScrollView();
+    const scrollTo: jest.Mock = scrollView.instance.scrollTo;
+    fireEvent(scrollView, 'contentSizeChange', 100, 90);
+    layoutSectionList({ visibleHeight: 40, rowHeight: 30 });
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    // Dairy's row spans 60..90; centered in a 40px list, the list shows 55..95.
+    act(() => jest.advanceTimersByTime(50));
+    expect(scrollTo.mock.calls).toEqual([[{ y: 55, animated: false }]]);
+  });
+
   // A list renders its first rows at once and the rest a batch at a time, so a
   // section far down has no laid out row to center yet when the list opens.
   it('jumps near a section whose row is not laid out yet when a touch opens the section list, then centers it', () => {
