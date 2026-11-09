@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { CategoryItemData, data, Header, Product } from './data/categories';
 
 import {
@@ -129,15 +129,22 @@ const Categories = () => {
     });
   }, []);
 
+  // Like the production app, report the first visible item to the dots only
+  // once the list has settled for 500 ms.
+  const viewableIndexDebounce = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(viewableIndexDebounce.current), []);
   const onViewableItemsChanged = (info: {
     viewableItems: ViewToken[];
     changed: ViewToken[];
   }) => {
-    if (info.viewableItems[0]?.index != null) {
-      fastScrollSectionDotsRef.current?.onViewableIndexChanged(
-        info.viewableItems[0].index
-      );
-    }
+    clearTimeout(viewableIndexDebounce.current);
+    viewableIndexDebounce.current = setTimeout(() => {
+      if (info.viewableItems[0]?.index != null) {
+        fastScrollSectionDotsRef.current?.onViewableIndexChanged(
+          info.viewableItems[0].index
+        );
+      }
+    }, 500);
   };
 
   const onScrollToIndex = (index: number) => {
