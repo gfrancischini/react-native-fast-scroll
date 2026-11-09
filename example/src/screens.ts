@@ -6,4 +6,5 @@ export type RootStackParamList = {
   StaleCallback: undefined;
   DotsLayout: undefined;
   MemoryLeak: undefined;
+  ReplaceSections: undefined;
 };
