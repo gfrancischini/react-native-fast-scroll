@@ -65,24 +65,20 @@ list; the other four worked. Check it again before treating it as a bug.
 
 None of these grows memory over time: they cost CPU and short-lived garbage.
 
-### The indicator reads shared values synchronously on every scroll frame
+### The dots bar reads shared values synchronously on viewability changes
 
-[FastScrollIndicator.tsx:250-256](../src/FastScrollIndicator/FastScrollIndicator.tsx#L250-L256):
-`onScrollToOffsetPercentage` reads `disableOnScrollEvent.value` and
-`viewLayout.value` on the JS thread. On Reanimated 3 (native), reading `.value`
-from JS goes through `executeOnUIRuntimeSync` (`react-native-reanimated`
-`src/mutables.ts`): the JS thread blocks until the UI runtime answers. That
-happens twice per scroll frame, while the UI runtime is busy with the scroll.
-On Reanimated 2.12, which this repo develops against, the read is cheap, so
-tests do not show it.
+[FastScrollSectionDotsBar.tsx:266-271](../src/FastScrollSectionDots/FastScrollSectionDotsBar.tsx#L266-L271):
+the bar's `onSectionChange` handle, reached from `onViewableIndexChanged`, reads
+`enableExternalScrollEvents.value` and `containerScrollY.value` on the JS
+thread. On Reanimated 3 (native), reading `.value` from JS goes through
+`executeOnUIRuntimeSync` (`react-native-reanimated` `src/mutables.ts`): the JS
+thread blocks until the UI runtime answers. On Reanimated 2.12, which this repo
+develops against, the read is cheap, so tests do not show it.
 
-Possible fix: keep JS mirrors in refs (height from `onLayout`, a dragging flag
-set with `runOnJS` from `onBegin` / `onFinalize`), or move the whole update into
-one asynchronous `runOnUI` call.
-
-`FastScrollSectionDotsBar`'s handle does the same
-([FastScrollSectionDotsBar.tsx:266-271](../src/FastScrollSectionDots/FastScrollSectionDotsBar.tsx#L266-L271)),
-but it is called on viewability changes, not on every frame.
+It runs on viewability changes, not on every frame, so it costs far less than
+the same reads did in `FastScrollIndicator`, which now keeps JS copies (the
+track height from `onLayout`, a finger-on-track flag set with `runOnJS` from
+the pan's `onBegin` / `onFinalize`). The same approach applies here.
 
 ### Dragging the dots does work on every frame, even without a section change
 

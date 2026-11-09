@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useMemo,
 } from 'react';
-import { StyleSheet, ColorValue } from 'react-native';
+import { StyleSheet, ColorValue, LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -110,9 +110,25 @@ export const FastScrollIndicator = React.forwardRef(
     const translateY = useSharedValue(0);
     const scale = useSharedValue(1);
     const translateFastScrollBarXTimer = useRef<NodeJS.Timeout | null>(null);
-    const disableOnScrollEvent = useSharedValue(false);
-
     const viewLayout = useSharedValue({ x: 0, y: 0, height: 0, width: 0 });
+
+    // Apps call onScrollToOffsetPercentage on every scroll frame, and on
+    // Reanimated 3 reading a shared value from JS blocks the JS thread until
+    // the UI runtime answers. So that handle reads JS copies instead: the
+    // track's height, kept from onLayout, and whether a finger is on the
+    // track, set from the pan's onBegin and onFinalize.
+    const trackHeight = useRef(0);
+    const fingerOnTrack = useRef(false);
+    const setFingerOnTrack = useCallback((isOnTrack: boolean) => {
+      fingerOnTrack.current = isOnTrack;
+    }, []);
+    const onTrackLayout = useCallback(
+      (event: LayoutChangeEvent) => {
+        viewLayout.value = event.nativeEvent.layout;
+        trackHeight.current = event.nativeEvent.layout.height;
+      },
+      [viewLayout]
+    );
 
     const clearTimeoutFastScrollBar = useCallback(() => {
       if (translateFastScrollBarXTimer.current != null) {
@@ -195,7 +211,6 @@ export const FastScrollIndicator = React.forwardRef(
         const { yPosition, yPercentage } = calculateYPosition(y);
         translateY.value = yPosition;
         processScroll(yPercentage);
-        disableOnScrollEvent.value = true;
         runOnJS(clearTimeoutFastScrollBar)();
       };
 
@@ -206,6 +221,8 @@ export const FastScrollIndicator = React.forwardRef(
           // The finger touches the track
           .onBegin((event) => {
             scale.value = thumbScaleOnPress;
+            // Before the list scrolls: its scroll events are ignored from now on.
+            runOnJS(setFingerOnTrack)(true);
             followFinger(event.y);
           })
           // The finger has moved far enough to activate the pan, then moves on
@@ -217,16 +234,16 @@ export const FastScrollIndicator = React.forwardRef(
             processScroll(yPercentage);
             translateY.value = yPosition;
             scale.value = 1;
-            disableOnScrollEvent.value = false;
+            runOnJS(setFingerOnTrack)(false);
             runOnJS(scheduleHideFastScrollbar)();
           })
       );
     }, [
       clearTimeoutFastScrollBar,
-      disableOnScrollEvent,
       processScrollJSThread,
       scale,
       scheduleHideFastScrollbar,
+      setFingerOnTrack,
       thumbHeight,
       thumbScaleOnPress,
       translateY,
@@ -260,13 +277,13 @@ export const FastScrollIndicator = React.forwardRef(
             return;
           }
 
-          if (disableOnScrollEvent.value) {
+          if (fingerOnTrack.current) {
             // event is ignored as the scrolling is being done by the thumbs
             return;
           }
 
           translateY.value =
-            offsetPercentage * (viewLayout.value.height - thumbSize.height);
+            offsetPercentage * (trackHeight.current - thumbSize.height);
 
           showFastScrollBar();
         },
@@ -308,7 +325,7 @@ export const FastScrollIndicator = React.forwardRef(
           <Animated.View
             style={styles.container}
             testID={INDICATOR_TRACK_TEST_ID}
-            onLayout={(event) => (viewLayout.value = event.nativeEvent.layout)}
+            onLayout={onTrackLayout}
           >
             {visible && (
               <Animated.View
