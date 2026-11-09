@@ -126,8 +126,11 @@ by typecheck and lint too.
   excluded from the package, so test-only code lives in those directories.
 - **Pinned React.** `react` 18.1.0, `react-native` 0.70.6; `react-test-renderer`
   must equal the `react` version exactly.
-- **Example app** (`example/`, Expo 47) has its own `node_modules`; install it
-  with `yarn bootstrap`. It consumes `src/` directly, so library edits show up
-  without a build.
+- **Example app** (`example/`, Expo SDK 52: React 18.3, RN 0.76, Reanimated
+  3.16, Gesture Handler 2.20, New Architecture) has its own `node_modules`;
+  install it with `yarn bootstrap`. It runs in Expo Go for SDK 52. It consumes
+  `src/` directly, so library edits show up without a build, and it is where
+  the Reanimated 3 / New Architecture side of the two version targets can be
+  checked on a device (Jest runs the minimum peers).
 - Commits follow Conventional Commits; releases go through `release-it`
   (`yarn release` publishes to npm - only run it when asked).

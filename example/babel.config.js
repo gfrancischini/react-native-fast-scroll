@@ -4,6 +4,7 @@ module.exports = function (api) {
   api.cache(true);
 
   return {
+    // babel-preset-expo adds the Reanimated plugin when Reanimated is installed.
     presets: ['babel-preset-expo'],
     plugins: [
       [
@@ -16,7 +17,6 @@ module.exports = function (api) {
           },
         },
       ],
-      'react-native-reanimated/plugin',
     ],
   };
 };

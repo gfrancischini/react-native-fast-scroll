@@ -37,7 +37,7 @@ type Payload = { renderId: number; data: number[] };
 
 let renders = 0;
 
-type HermesStats = Record<string, number>;
+type HermesStats = { js_allocatedBytes: number };
 type HermesGlobal = {
   gc?: () => void;
   HermesInternal?: { getInstrumentedStats?: () => HermesStats };
