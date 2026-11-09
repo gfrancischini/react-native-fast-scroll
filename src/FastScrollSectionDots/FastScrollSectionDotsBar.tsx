@@ -73,7 +73,20 @@ export type Props = {
   onFingerUp: () => void;
 
   sections: SectionFullData[];
+
+  /**
+   * The section the thumb starts on. The bar mounts each time it shows, so
+   * without it the thumb would start above the first dot.
+   */
+  initialSectionIndex?: number;
 };
+
+/** Where the thumb sits when it rests on the dot of `sectionIndex`: its middle. */
+const thumbYOnDot = (
+  sectionIndex: number,
+  dotSize: number,
+  dotMargin: number
+) => dotMargin * (sectionIndex + 1) + dotSize * sectionIndex + dotSize / 2;
 
 export type FastScrollSectionDotsBarHandle = {
   /**
@@ -95,12 +108,17 @@ const FastScrollSectionDotsBar = React.forwardRef(
       onSectionChange,
       onFingerDown,
       onFingerUp,
+      initialSectionIndex,
       ...props
     }: Props,
     forwardedRef: React.ForwardedRef<FastScrollSectionDotsBarHandle>
   ) => {
     const scale = useSharedValue(1);
-    const pointStylePositionY = useSharedValue(0);
+    const pointStylePositionY = useSharedValue(
+      initialSectionIndex === undefined
+        ? 0
+        : thumbYOnDot(initialSectionIndex, dotSize, dotMargin)
+    );
     const containerYOnPointStylePositionY = useSharedValue(0);
 
     const sections = useMemo((): SectionDataWithDimensions[] => {
@@ -301,10 +319,11 @@ const FastScrollSectionDotsBar = React.forwardRef(
       (): FastScrollSectionDotsBarHandle => ({
         onSectionChange: (section: SectionFullData) => {
           if (enableExternalScrollEvents.value) {
-            pointStylePositionY.value =
-              dotMargin * (section.sectionIndex + 1) +
-              dotSize * section.sectionIndex +
-              dotSize / 2;
+            pointStylePositionY.value = thumbYOnDot(
+              section.sectionIndex,
+              dotSize,
+              dotMargin
+            );
             containerYOnPointStylePositionY.value = containerScrollY.value;
           }
         },

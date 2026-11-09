@@ -49,22 +49,6 @@ instead of reaching the top or the bottom. Clamp to 0..1 instead.
 or an empty string would be better. Whatever changes, `createFullSectionData`
 must keep spreading unknown fields of `stickyHeaderIndicesWithData` through.
 
-### The dots' thumb goes back to the first dot each time the bar shows
-
-[FastScrollSectionDots.tsx:230](../src/FastScrollSectionDots/FastScrollSectionDots.tsx#L230):
-the bar is unmounted while hidden (`{visible && ...}`), so:
-
-- `onViewableIndexChanged` is dropped while the bar is hidden, because
-  `fastScrollSectionDotsBarRef.current` is `null`
-  ([line 149](../src/FastScrollSectionDots/FastScrollSectionDots.tsx#L149)).
-- When the bar mounts again, `pointStylePositionY` starts at 0, so the thumb
-  sits on the first dot.
-
-Apps show the bar from `onScroll` but usually debounce `onViewableIndexChanged`
-until the list stops, so during a fling the thumb may point at the first section
-the whole time. Not confirmed on a device yet. The fix is the one in "The dots
-bar remounts every time it shows" below.
-
 ## Performance
 
 None of these grows memory over time: they cost CPU and short-lived garbage.
@@ -139,8 +123,8 @@ per dot, and a `measure` call. Meanwhile `useHideFlatBar` springs
 hide, but nothing reads it.
 
 Possible fix: keep the bar mounted and slide it with `translateFastScrollBarX`
-(or drop that shared value). This also fixes "The dots' thumb goes back to the
-first dot each time the bar shows" above.
+(or drop that shared value). The thumb no longer depends on it: the dots keep
+the last active section and the bar starts on it when it mounts.
 
 ### Unstable props rebuild the gestures
 

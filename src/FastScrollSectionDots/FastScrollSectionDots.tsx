@@ -137,6 +137,12 @@ const FastScrollSectionDots = React.forwardRef(
       });
     }, [stickyHeaderIndices, stickyHeaderIndicesWithData]);
 
+    // The bar unmounts while hidden, and apps show it from onScroll but usually
+    // report the first visible item only once the list stops. The last section
+    // reported or dragged to is kept here so the thumb starts on it each time
+    // the bar mounts again.
+    const activeSectionIndexRef = useRef<number | undefined>(undefined);
+
     React.useImperativeHandle(
       forwardedRef,
       (): FastScrollSectionDotsHandle => ({
@@ -146,7 +152,8 @@ const FastScrollSectionDots = React.forwardRef(
 
         onViewableIndexChanged(index: number) {
           const section = findNearestActiveSection(sections, index);
-          if (section && fastScrollSectionDotsBarRef.current) {
+          if (section) {
+            activeSectionIndexRef.current = section.sectionIndex;
             fastScrollSectionDotsBarRef.current?.onSectionChange(section);
           }
         },
@@ -205,6 +212,7 @@ const FastScrollSectionDots = React.forwardRef(
     const onSectionChange = useCallback(
       (section: SectionFullData) => {
         debouncedScrollToIndexRef.current(section.index);
+        activeSectionIndexRef.current = section.sectionIndex;
 
         if (section) {
           // locing the panel as we are opening the full list
@@ -255,6 +263,7 @@ const FastScrollSectionDots = React.forwardRef(
               onSectionChange={onSectionChange}
               onFingerDown={holdSectionList}
               onFingerUp={releaseSectionList}
+              initialSectionIndex={activeSectionIndexRef.current}
             />
           </Animated.View>
         )}

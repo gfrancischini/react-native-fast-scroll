@@ -328,10 +328,45 @@ describe('FastScrollSectionDots', () => {
     expect(getDotsScrollOffset()).toBe(0);
   });
 
-  // Today the dots remount when they reappear and the thumb starts at the top
-  // of the bar (above the first dot) until the next onViewableIndexChanged.
-  // Calls made while the dots are hidden are dropped as well.
-  it.todo('shows the thumb on the current section when the dots reappear');
+  // Apps show the dots from onScroll but usually report the first visible item
+  // only once the list stops, so the dots reappear before the next report.
+  it('shows the thumb on the current section when the dots reappear', () => {
+    const { scrollList, showListItem } = renderDots({
+      hideFastScrollIndicatorTimeout: 1000,
+    });
+    scrollList();
+    showListItem(7);
+    act(() => jest.advanceTimersByTime(1000));
+    expect(isAnythingShown()).toBe(false);
+
+    scrollList();
+
+    expect(getThumbPosition()).toBe(THUMB_ON.vegetables);
+  });
+
+  it('shows the thumb on the section the list reached while the dots were hidden', () => {
+    const { scrollList, showListItem } = renderDots({
+      hideFastScrollIndicatorTimeout: 1000,
+    });
+
+    showListItem(250);
+    scrollList();
+
+    expect(getThumbPosition()).toBe(THUMB_ON.dairy);
+  });
+
+  it('shows the thumb on the dragged section when the dots reappear', () => {
+    const { scrollList } = renderDots({ hideFastScrollIndicatorTimeout: 1000 });
+    scrollList();
+    drag([FINGER_ON.fruits, FINGER_ON.dairy]);
+    // The section list closes after 3 s, then the dots after their 1 s.
+    act(() => jest.advanceTimersByTime(4000));
+    expect(isAnythingShown()).toBe(false);
+
+    scrollList();
+
+    expect(getThumbPosition()).toBe(THUMB_ON.dairy);
+  });
 
   it('opens the section list with the dragged section marked active', () => {
     renderDots({
