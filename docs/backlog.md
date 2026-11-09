@@ -34,21 +34,6 @@ a device yet.
 Possible fix: scroll once the list has mounted (for example `initialScrollIndex`
 or an effect on the active section), instead of in `show()`.
 
-### Timers are not cleared on unmount
-
-The debounced drag scroll of the dots is cancelled on unmount; these are not:
-
-- `useHideFlatBar` and `useTimer` in [utils.ts](../src/utils.ts) (lines 103
-  and 187)
-- the hide timer of
-  [FastScrollIndicator.tsx:130](../src/FastScrollIndicator/FastScrollIndicator.tsx#L130)
-- `rescrollTimeout` in
-  [FastScrollSectionFullList.tsx:116](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L116)
-
-Their callbacks, such as `onHide` and `withSpring` on shared values, can still
-run after the screen closed. Best done together with the item above, since both
-touch the section list's timers.
-
 ### `FastScrollIndicator` drops offsets outside 0..1 instead of clamping them
 
 [FastScrollIndicator.tsx:243](../src/FastScrollIndicator/FastScrollIndicator.tsx#L243):
@@ -93,8 +78,6 @@ on a device yet.
 ## Performance
 
 None of these grows memory over time: they cost CPU and short-lived garbage.
-The only leak-like issue is "Timers are not cleared on unmount" above, and even
-those timers release their closures once they fire (3 s at most).
 
 ### The indicator reads shared values synchronously on every scroll frame
 

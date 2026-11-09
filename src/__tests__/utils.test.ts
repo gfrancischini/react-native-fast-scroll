@@ -142,6 +142,18 @@ describe('useHideFlatBar', () => {
     act(() => jest.advanceTimersByTime(1));
     expect(result.current.visible).toBe(false);
   });
+
+  it('leaves no hide timer running once it unmounts', () => {
+    const { result, unmount } = renderBar(1000);
+    act(() => result.current.showFastScrollBar());
+
+    unmount();
+    // The slide-in spring was cancelled with the hook, but Reanimated had
+    // already requested its next frame; let that one frame pass.
+    act(() => jest.advanceTimersByTime(16));
+
+    expect(jest.getTimerCount()).toBe(0);
+  });
 });
 
 describe('useTimer', () => {
@@ -188,6 +200,19 @@ describe('useTimer', () => {
 
     act(() => startTimer());
     act(() => clearTimer());
+    act(() => jest.advanceTimersByTime(10_000));
+
+    expect(callbackTimeout).not.toHaveBeenCalled();
+  });
+
+  it('never times out once unmounted', () => {
+    const callbackTimeout = jest.fn();
+    const { result, unmount } = renderHook(() =>
+      useTimer({ callbackSchedule: jest.fn(), callbackTimeout, timeout: 500 })
+    );
+    act(() => result.current[0]());
+
+    unmount();
     act(() => jest.advanceTimersByTime(10_000));
 
     expect(callbackTimeout).not.toHaveBeenCalled();
