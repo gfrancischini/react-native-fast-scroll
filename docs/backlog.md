@@ -22,18 +22,6 @@ re-render change touches that path.
 
 ## Bugs
 
-### The section list may not center the active section when it opens
-
-[FastScrollSectionFullList.tsx:103-125](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L103-L125):
-`show()` only scrolls when `flatListRef.current` is set, but the list renders
-`null` while hidden. On the first `show()` the list is not mounted yet, so
-neither the `scrollToIndex` nor the 1 s retry runs. During a drag the next calls
-fix it; a quick tap on the dots may leave the list at its top. Not confirmed on
-a device yet.
-
-Possible fix: scroll once the list has mounted (for example `initialScrollIndex`
-or an effect on the active section), instead of in `show()`.
-
 ### Sections built from `stickyHeaderIndices` all read "1"
 
 [utils.ts:232](../src/utils.ts#L232): `createFullSectionData` gives each section

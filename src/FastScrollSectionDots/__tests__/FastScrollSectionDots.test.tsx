@@ -761,19 +761,73 @@ describe('FastScrollSectionDots', () => {
     expect(isAnythingShown()).toBe(false);
   });
 
-  // The touch opens the list, so it is not there yet to scroll when the touch
-  // reports its section, and the finger only reports again on another dot.
-  it('centers the section a touch opens the section list on, while the finger stays on its dot', () => {
+  // The section list renders nothing while closed, so the touch that opens it
+  // finds no list to scroll: it has to center once its rows are laid out.
+  it('centers the section under the finger when a touch opens the section list', () => {
     renderDots({ hideFastScrollIndicatorTimeout: 0 });
-    const finger = touchDown(FINGER_ON.dairy);
-    layoutSectionList({ visibleHeight: 40, rowHeight: 30 });
-    const scrollTo: jest.Mock = getSectionListScrollView().instance.scrollTo;
 
-    finger.moveTo(FINGER_ON.dairy + 2);
-    act(() => jest.advanceTimersByTime(1000));
+    touchDown(FINGER_ON.dairy);
+    layoutSectionList({ visibleHeight: 40, rowHeight: 30 });
+    const scrollView = getSectionListScrollView();
+    const scrollTo: jest.Mock = scrollView.instance.scrollTo;
+    expect(scrollTo).not.toHaveBeenCalled();
+    // The list reports the size of its rows once they are laid out.
+    fireEvent(scrollView, 'contentSizeChange', 100, 90);
 
     // Dairy's row spans 60..90; centered in a 40px list, the list shows 55..95.
-    expect(scrollTo.mock.calls).toEqual([[{ y: 55 }]]);
+    expect(scrollTo.mock.calls).toEqual([[{ y: 55, animated: false }]]);
+
+    // The retry covers rows that were not measured yet on the first attempt.
+    act(() => jest.advanceTimersByTime(1000));
+    expect(scrollTo.mock.calls).toEqual([
+      [{ y: 55, animated: false }],
+      [{ y: 55 }],
+    ]);
+  });
+
+  // A list renders its first rows at once and the rest a batch at a time, so a
+  // section far down has no laid out row to center yet when the list opens.
+  it('jumps near a section whose row is not laid out yet when a touch opens the section list, then centers it', () => {
+    renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+      sections: Array.from({ length: 30 }, (_, i) => ({
+        index: i * 10,
+        text: `Aisle ${i}`,
+      })),
+    });
+
+    // Aisle 25's dot starts at 12 * 26 + 10 * 25 = 562.
+    touchDown(565);
+    const scrollView = getSectionListScrollView();
+    const layout = (y: number, height: number) => ({
+      nativeEvent: { layout: { x: 0, y, width: 100, height } },
+    });
+    fireEvent(scrollView, 'layout', layout(0, 100));
+    // The first 10 rows are 30px tall, the others 40px.
+    const rowTop = (i: number) => (i < 10 ? i * 30 : 300 + (i - 10) * 40);
+    /** The list renders a batch of 10 rows, and they are laid out. */
+    const layoutBatch = (first: number) => {
+      act(() => jest.advanceTimersByTime(100));
+      Array.from({ length: 10 }, (_, i) => first + i).forEach((i) =>
+        fireEvent(
+          screen.getByText(`Aisle ${i}`),
+          'layout',
+          layout(rowTop(i), rowTop(i + 1) - rowTop(i))
+        )
+      );
+      fireEvent(scrollView, 'contentSizeChange', 100, rowTop(first + 10));
+    };
+    const scrollTo: jest.Mock = scrollView.instance.scrollTo;
+
+    layoutBatch(0);
+    // Rows average 30px so far, so Aisle 25's row should be about 750..780;
+    // centered in a 100px list, the list shows about 715..815.
+    expect(scrollTo.mock.calls).toEqual([[{ y: 715, animated: false }]]);
+
+    layoutBatch(10);
+    layoutBatch(20);
+    // Aisle 25's row is laid out at 900..940: centered, the list shows 870..970.
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: 870, animated: false });
   });
 
   it('scrolls the open section list to center the section under the finger, and again a second later', () => {
@@ -787,12 +841,15 @@ describe('FastScrollSectionDots', () => {
     touchDown(FINGER_ON.dairy);
 
     // Dairy's row spans 60..90; centered in a 40px list, the list shows 55..95.
-    expect(scrollTo.mock.calls).toEqual([[{ y: 55 }]]);
+    expect(scrollTo.mock.calls).toEqual([[{ y: 55, animated: false }]]);
 
     // The retry covers rows that were not measured yet on the first attempt.
     act(() => jest.advanceTimersByTime(999));
     expect(scrollTo).toHaveBeenCalledTimes(1);
     act(() => jest.advanceTimersByTime(1));
-    expect(scrollTo.mock.calls).toEqual([[{ y: 55 }], [{ y: 55 }]]);
+    expect(scrollTo.mock.calls).toEqual([
+      [{ y: 55, animated: false }],
+      [{ y: 55 }],
+    ]);
   });
 });

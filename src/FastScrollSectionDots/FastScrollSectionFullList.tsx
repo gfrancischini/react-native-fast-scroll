@@ -10,6 +10,7 @@ import React, {
 import {
   ColorValue,
   FlatList,
+  LayoutChangeEvent,
   ListRenderItemInfo,
   StyleSheet,
 } from 'react-native';
@@ -128,36 +129,69 @@ const FastScrollSectionFullList = React.forwardRef(
       []
     );
 
-    // Read when the list lays out, which can be before the state update that
-    // set the active section has rendered.
-    const activeSectionRef = useRef<SectionFullData | null>(null);
+    /** Centers the row of `section` in the list, when the list is on screen. */
+    const centerSection = useCallback(
+      (section: SectionFullData, animated?: boolean) => {
+        flatListRef.current?.scrollToIndex({
+          index: section.sectionIndex,
+          viewPosition: 0.5,
+          animated,
+        });
+      },
+      []
+    );
 
-    /**
-     * Centers the active section's row, then again a second later: rows the
-     * list had not measured yet cannot be scrolled to on the first attempt.
-     */
-    const centerActiveSection = useCallback(() => {
-      const section = activeSectionRef.current;
-      if (!flatListRef.current || !section) {
+    // The section to center waits here until its row is laid out. The list
+    // renders nothing while closed, so the touch that opens it has no list to
+    // scroll yet; then it renders its first rows and the rest a batch at a
+    // time, each batch growing its content, so a row far down is laid out
+    // only later.
+    const sectionToCenter = useRef<SectionFullData | null>(null);
+    const centerFailed = useRef(false);
+
+    // Without an animation: on Android, an animated scroll started while the
+    // list is still laying out its rows does not move it.
+    const centerPendingSection = useCallback(() => {
+      if (!sectionToCenter.current || !flatListRef.current) {
         return;
       }
-      flatListRef.current.scrollToIndex({
-        index: section.sectionIndex,
-        viewPosition: 0.5,
-      });
-      if (rescrollTimeout.current) {
-        clearTimeout(rescrollTimeout.current);
-        rescrollTimeout.current = null;
+      centerFailed.current = false;
+      centerSection(sectionToCenter.current, false);
+      if (!centerFailed.current) {
+        sectionToCenter.current = null;
       }
-      rescrollTimeout.current = setTimeout(() => {
-        if (flatListRef.current) {
-          flatListRef.current.scrollToIndex({
-            index: section.sectionIndex,
-            viewPosition: 0.5,
-          });
-        }
-      }, 1000);
+    }, [centerSection]);
+
+    const listHeight = useRef(0);
+    const onLayout = useCallback((event: LayoutChangeEvent) => {
+      listHeight.current = event.nativeEvent.layout.height;
     }, []);
+
+    // Called when the row is not laid out yet. Once some rows are, jump to
+    // where it should be from their average height: that renders the rows
+    // around it, and the next content size change centers it exactly.
+    const onScrollToIndexFailed = useCallback(
+      ({
+        index,
+        averageItemLength,
+      }: {
+        index: number;
+        averageItemLength: number;
+      }) => {
+        centerFailed.current = true;
+        if (averageItemLength === 0) {
+          return;
+        }
+        flatListRef.current?.scrollToOffset({
+          offset: Math.max(
+            0,
+            averageItemLength * (index + 0.5) - listHeight.current / 2
+          ),
+          animated: false,
+        });
+      },
+      []
+    );
 
     React.useImperativeHandle(
       forwardedRef,
@@ -165,12 +199,18 @@ const FastScrollSectionFullList = React.forwardRef(
         show(section: SectionFullData) {
           setActiveIndexVisible(true);
           setActiveSection(section);
-          activeSectionRef.current = section;
           startShowActiveIndexVisibleTimer();
-          // When show() opens the list, it is not mounted yet: it centers the
-          // section once it lays out (onLayout below). The dots only call
-          // show() again when the finger reaches another dot.
-          centerActiveSection();
+          sectionToCenter.current = section;
+          centerPendingSection();
+          // Again a second later, in case the list has not centered it by then.
+          if (rescrollTimeout.current) {
+            clearTimeout(rescrollTimeout.current);
+            rescrollTimeout.current = null;
+          }
+          rescrollTimeout.current = setTimeout(() => {
+            rescrollTimeout.current = null;
+            centerSection(section);
+          }, 1000);
         },
         hold(isHeld: boolean) {
           held.current = isHeld;
@@ -209,10 +249,9 @@ const FastScrollSectionFullList = React.forwardRef(
         ref={setFlatListRef}
         style={styles.list}
         contentContainerStyle={styles.listContainer}
-        onLayout={centerActiveSection}
-        onScrollToIndexFailed={() => {
-          // just ignore to avoid errors/crashes
-        }}
+        onLayout={onLayout}
+        onScrollToIndexFailed={onScrollToIndexFailed}
+        onContentSizeChange={centerPendingSection}
         onScroll={() => {
           startShowActiveIndexVisibleTimer();
         }}
