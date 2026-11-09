@@ -161,6 +161,16 @@ const FastScrollSectionDots = React.forwardRef(
       side === 'left' ? SlideOutLeft : SlideOutRight
     ).duration(500);
 
+    // The section list stays open while a finger rests on the dots.
+    const holdSectionList = useCallback(
+      () => fastScrollSectionFullListRef.current?.hold(true),
+      []
+    );
+    const releaseSectionList = useCallback(
+      () => fastScrollSectionFullListRef.current?.hold(false),
+      []
+    );
+
     const onHide = useCallback(() => {
       lockScrollBarVisibility(false);
     }, [lockScrollBarVisibility]);
@@ -243,6 +253,8 @@ const FastScrollSectionDots = React.forwardRef(
               dotColor={dotColor}
               scrollBarColor={scrollBarColor}
               onSectionChange={onSectionChange}
+              onFingerDown={holdSectionList}
+              onFingerUp={releaseSectionList}
             />
           </Animated.View>
         )}

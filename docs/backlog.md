@@ -65,16 +65,6 @@ until the list stops, so during a fling the thumb may point at the first section
 the whole time. Not confirmed on a device yet. The fix is the one in "The dots
 bar remounts every time it shows" below.
 
-### The section list can hide while the finger is still on the dots
-
-[FastScrollSectionFullList.tsx:73-88](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L73-L88):
-the list hides 3 s after the last `show()`, and `show()` only runs while the
-finger moves. Holding the finger still on the dots for 3 s hides the list and
-unlocks the bar mid-touch. Lock the list's timer from the pan's `onBegin` and
-start it from `onFinalize` instead of refreshing it per frame. Best done
-together with "Dragging the dots does work on every frame" below. Not confirmed
-on a device yet.
-
 ## Performance
 
 None of these grows memory over time: they cost CPU and short-lived garbage.
@@ -117,8 +107,8 @@ animation per frame, even while the finger stays on one section.
 
 Possible fix: find the section in the worklet (`findSectionOnPosition` already
 is one), keep the last `sectionIndex` in a shared value, and only cross to JS
-when it changes. Lock the list's timer during the drag instead of refreshing it
-(see "The section list can hide while the finger is still on the dots" above).
+when it changes. The finger already holds the list open from `onBegin` to
+`onFinalize`, so `show()` would not need to touch its hide timer at all.
 
 ### Both components restart the hide timer on every scroll frame
 
