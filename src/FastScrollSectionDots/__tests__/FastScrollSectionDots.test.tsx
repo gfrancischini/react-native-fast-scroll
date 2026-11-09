@@ -481,6 +481,22 @@ describe('FastScrollSectionDots', () => {
     expect(onScrollToIndex).not.toHaveBeenCalled();
   });
 
+  it('leaves no timer running once it unmounts while the section list is open', () => {
+    // An app screen that closes while the dots and the section list are on
+    // screen, right after a touch moved the open section list.
+    const { scrollList } = renderDots({ hideFastScrollIndicatorTimeout: 1000 });
+    scrollList();
+    drag([FINGER_ON.fruits]);
+    touchDown(FINGER_ON.dairy).lift();
+
+    screen.unmount();
+    // Let the exit animations, which run on Reanimated's own timers, finish;
+    // the section list's retry is still 500 ms away and its auto-hide 2.5 s.
+    act(() => jest.advanceTimersByTime(500));
+
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   it('drags through the sections of the latest render', () => {
     const onScrollToIndex = jest.fn();
     const { rerender } = render(

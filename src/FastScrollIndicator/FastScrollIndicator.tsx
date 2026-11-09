@@ -164,6 +164,9 @@ export const FastScrollIndicator = React.forwardRef(
       showFastScrollBar,
     ]);
 
+    // A screen can close while the bar waits to hide.
+    useEffect(() => clearTimeoutFastScrollBar, [clearTimeoutFastScrollBar]);
+
     const processScrollJSThread = useCallback((offsetPercentage: number) => {
       scrollToOffsetPercentageRef.current(offsetPercentage);
     }, []);

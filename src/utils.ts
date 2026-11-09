@@ -149,6 +149,9 @@ export const useHideFlatBar = ({
     showFastScrollBar,
   ]);
 
+  // A screen can close while the bar waits to hide.
+  useEffect(() => clearTimeoutFastScrollBar, [clearTimeoutFastScrollBar]);
+
   return {
     translateFastScrollBarX,
     clearTimeoutFastScrollBar,
@@ -201,6 +204,9 @@ export const useTimer = ({
       startTimer();
     }
   }, [scheduleTimer, startTimer, timeout]);
+
+  // A screen can close while the timer runs.
+  useEffect(() => clearTimer, [clearTimer]);
 
   return [startTimer, clearTimer, scheduleTimer] as const;
 };

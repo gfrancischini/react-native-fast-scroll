@@ -1,6 +1,12 @@
 import type { SectionFullData } from '../types';
 
-import React, { useRef, useState, useMemo, useCallback } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ColorValue,
   FlatList,
@@ -96,6 +102,16 @@ const FastScrollSectionFullList = React.forwardRef(
     );
 
     const rescrollTimeout = useRef<NodeJS.Timeout | null>(null);
+
+    // A screen can close before the retry runs.
+    useEffect(
+      () => () => {
+        if (rescrollTimeout.current) {
+          clearTimeout(rescrollTimeout.current);
+        }
+      },
+      []
+    );
 
     React.useImperativeHandle(
       forwardedRef,

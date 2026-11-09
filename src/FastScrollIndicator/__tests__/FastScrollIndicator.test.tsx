@@ -33,7 +33,7 @@ const renderIndicator = ({
   const scrollListTo = (offsetPercentage: number) =>
     act(() => ref.current?.onScrollToOffsetPercentage(offsetPercentage));
 
-  return { scrollListTo, scrollToOffsetPercentage };
+  return { scrollListTo, scrollToOffsetPercentage, unmount: screen.unmount };
 };
 
 /** The gesture area stays mounted; the scroll bar is its only child. */
@@ -58,6 +58,22 @@ describe('FastScrollIndicator', () => {
     expect(isScrollBarShown()).toBe(true);
     act(() => jest.advanceTimersByTime(1));
     expect(isScrollBarShown()).toBe(false);
+  });
+
+  it('leaves no hide timer running once it unmounts while shown', () => {
+    // An app screen that closes while the bar is on screen.
+    const { scrollListTo, unmount } = renderIndicator({
+      hideFastScrollIndicatorTimeout: 2000,
+    });
+    scrollListTo(0.3);
+    act(() => jest.advanceTimersByTime(1000));
+
+    unmount();
+    // Let the bar's 500 ms exit animation, which runs on Reanimated's own
+    // timers, finish; the hide timeout is still 500 ms away.
+    act(() => jest.advanceTimersByTime(500));
+
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   it('stays on screen while the list keeps scrolling', () => {
