@@ -65,16 +65,6 @@ still scrolls the list on Android. Wrapping the `Text` in
 `<View collapsable={false}>` is what the message asks for. The indicator's
 track view has no `collapsable={false}` either.
 
-### `src/` does not typecheck against Reanimated 3's types
-
-With the example's peers (`cd example && npx tsc --noEmit`), two ref types fail:
-`useComponentSize(containerRef)` in
-[FastScrollSectionDotsBar.tsx:153](../src/FastScrollSectionDots/FastScrollSectionDotsBar.tsx#L153),
-and the `Animated.FlatList` callback ref in
-[FastScrollSectionFullList.tsx:193](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L193).
-Apps are not affected (they read `lib/typescript`, and `skipLibCheck` skips
-it), but the published `.d.ts` is built against 2.12 only.
-
 ### A drag on the dots sometimes scrolls the list instead
 
 Not confirmed. On the Android emulator, two of six drags on the dots bar,
