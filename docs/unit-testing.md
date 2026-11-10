@@ -166,7 +166,7 @@ mock: most of what a test needs is already there.
 | --- | --- |
 | `jest.config.js` | `@testing-library/react-native` preset (see below), `clearMocks: true`, and `transformIgnorePatterns` that let Babel compile `react-native-reanimated`, `react-native-gesture-handler`, `react-native-redash` and `@shopify/flash-list`. |
 | `babel.config.js` | Adds `react-native-reanimated/plugin` in the `test` env only (see [Reanimated runs for real](#reanimated-runs-for-real)). The published `lib/` build does not use it. |
-| `jest/environment.js` | Node test environment that makes `global.performance` writable. RN 0.70's `jest/setup.js` assigns it, which throws on Node >= 18. Without this file the whole suite fails on a modern local Node, even though CI (Node 16 via `.nvmrc`) passes. |
+| `jest/environment.js` | Node test environment that makes `global.performance` writable. RN 0.70's `jest/setup.js` assigns it, which throws on Node >= 18. Without this file the whole suite fails on Node 18 and newer, which CI also runs (`.nvmrc`). |
 | `jest/setup.js` | Runs before the framework: loads `react-native-gesture-handler/jestSetup`, mocks `NativeAnimatedHelper`, and defines `global.ReanimatedDataMock` (see below). |
 | `jest/setupAfterEnv.js` | Runs after the framework: loads the `setimmediate` polyfill Reanimated needs, registers the RNTL matchers (`@testing-library/react-native/extend-expect`), and adds the global `afterEach` that ends fake timers (see [Determinism](#determinism)). |
 | `jest/matchers.d.ts` | Makes the RNTL matcher types visible to `yarn typecheck`; the runtime registration above is invisible to `tsc`. |
@@ -337,8 +337,9 @@ The `react-native` preset mocks native components. Two things that matter here:
 - Run: `yarn test <path/to/thing.test.tsx>` for one file, `yarn test` for
   everything, `yarn test --coverage` for the report. `yarn typecheck` and
   `yarn lint` for the static gates.
-- Node: CI uses `.nvmrc` (16.x). Newer local Node versions work because of
-  `jest/environment.js`.
+- Node: CI uses `.nvmrc` (22.x). The example app (React Native 0.76) does not
+  install on Node below 18, and CI installs it for `yarn typecheck`. The tests
+  run on Node 18+ because of `jest/environment.js`.
 - `react-test-renderer` must be **exactly** the installed `react` version
   (`18.1.0`) - `@testing-library/react-native` compares the two and throws
   otherwise. Bump them together.
