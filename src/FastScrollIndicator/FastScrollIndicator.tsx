@@ -112,11 +112,13 @@ export const FastScrollIndicator = React.forwardRef(
     const translateFastScrollBarXTimer = useRef<NodeJS.Timeout | null>(null);
     const viewLayout = useSharedValue({ x: 0, y: 0, height: 0, width: 0 });
 
-    // Apps call onScrollToOffsetPercentage on every scroll frame, and on
-    // Reanimated 3 reading a shared value from JS blocks the JS thread until
-    // the UI runtime answers. So that handle reads JS copies instead: the
-    // track's height, kept from onLayout, and whether a finger is on the
-    // track, set from the pan's onBegin and onFinalize.
+    // Apps call onScrollToOffsetPercentage on every scroll frame. On
+    // Reanimated 3, reading a shared value from JS takes the UI runtime's
+    // lock, so the JS thread waits while the UI thread runs worklets, which
+    // it does on every frame of a scroll (this thumb's springs, at least).
+    // So that handle reads JS copies instead: the track's height, kept from
+    // onLayout, and whether a finger is on the track, set from the pan's
+    // onBegin and onFinalize.
     const trackHeight = useRef(0);
     const fingerOnTrack = useRef(false);
     const setFingerOnTrack = useCallback((isOnTrack: boolean) => {
