@@ -1,7 +1,7 @@
 import type { SectionFullData } from '../types';
 
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, ColorValue } from 'react-native';
+import { StyleSheet, ColorValue, View } from 'react-native';
 
 import Animated, {
   runOnJS,
@@ -149,7 +149,14 @@ const FastScrollSectionDotsBar = React.forwardRef(
      * The following lines are use to control the scrolling of the scroll bar as dots might
      * be out of view
      */
-    const containerRef = useRef<React.ElementRef<typeof Animated.View>>(null);
+    // `Animated.View` forwards its ref to the native `View`, but Reanimated 3
+    // types the instance as its own component class, which has no `measure`.
+    // The callback takes any object so it fits both typings, and holds the ref
+    // as what it is at runtime.
+    const containerRef = useRef<View | null>(null);
+    const setContainerRef = useCallback((view: object | null) => {
+      containerRef.current = view as View | null;
+    }, []);
     const { size, onLayout } = useComponentSize(containerRef);
     const containerScrollY = useDerivedValue(() => {
       if (!size) {
@@ -369,7 +376,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
     return (
       <Animated.View
         onLayout={onLayout}
-        ref={containerRef}
+        ref={setContainerRef}
         style={[styles.scrollBar]}
       >
         <GestureDetector gesture={pan}>

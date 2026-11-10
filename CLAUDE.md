@@ -99,7 +99,10 @@ workaround).
 
 A change is done when `yarn test`, `yarn typecheck` and `yarn lint` all pass.
 CI runs the same three plus `yarn prepack` (bob build). Test files are covered
-by typecheck and lint too.
+by typecheck and lint too. `yarn typecheck` checks `src/` twice: against the
+dev dependencies (Reanimated 2.12), then through the example app's peers
+(Reanimated 3), so it needs the example installed (`yarn bootstrap`). Code that
+only fits one side's typings fails there.
 
 ## Conventions worth knowing
 

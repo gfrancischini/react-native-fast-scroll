@@ -1,10 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { LayoutChangeEvent, View } from 'react-native';
-import Animated, {
-  Easing,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import { Easing, useSharedValue, withSpring } from 'react-native-reanimated';
 import type { Section, SectionFullData } from './types';
 
 export const springConfig = {
@@ -41,9 +37,7 @@ export type ComponentSize = {
   pageY?: number;
 };
 
-export const useComponentSize = (
-  ref?: React.MutableRefObject<View | Animated.View | undefined | null>
-) => {
+export const useComponentSize = (ref?: React.RefObject<View>) => {
   const [size, setSize] = useState<ComponentSize | null>(null);
 
   const onLayout = useCallback(

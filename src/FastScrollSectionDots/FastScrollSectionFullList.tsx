@@ -63,18 +63,16 @@ const FastScrollSectionFullList = React.forwardRef(
   ) => {
     /**
      * `Animated.FlatList` forwards its ref to React Native's `FlatList`, but
-     * Reanimated 2.12's typings declare the instance as a `View`
-     * (`interface FlatList<T> extends View<T>`), which has no `scrollToIndex`.
-     * Hold the ref as what it is at runtime.
+     * the typings disagree across Reanimated versions: 2.12 declares the
+     * instance as a `View` (`interface FlatList<T> extends View<T>`), which has
+     * no `scrollToIndex`, and 3 declares React Native's `FlatList`. The
+     * callback takes any object so it fits both, and holds the ref as what it
+     * is at runtime.
      */
     const flatListRef = useRef<FlatList<SectionFullData> | null>(null);
-    const setFlatListRef = useCallback(
-      (list: Animated.FlatList<SectionFullData> | null) => {
-        flatListRef.current =
-          list as unknown as FlatList<SectionFullData> | null;
-      },
-      []
-    );
+    const setFlatListRef = useCallback((list: object | null) => {
+      flatListRef.current = list as FlatList<SectionFullData> | null;
+    }, []);
 
     const [activeIndexVisible, setActiveIndexVisible] = useState(false);
 
