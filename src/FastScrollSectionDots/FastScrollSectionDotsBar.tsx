@@ -5,6 +5,7 @@ import { StyleSheet, ColorValue, View } from 'react-native';
 
 import Animated, {
   runOnJS,
+  runOnUI,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -12,7 +13,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { springConfig, useComponentSize } from '../utils';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { calculateYPosition, findSectionOnPosition } from './utils';
+import {
+  calculateYPosition,
+  findSectionOnPosition,
+  thumbYOnDot,
+} from './utils';
 import { snapPoint } from 'react-native-redash';
 import type { SectionDataWithDimensions } from '../types';
 
@@ -80,13 +85,6 @@ export type Props = {
    */
   initialSectionIndex?: number;
 };
-
-/** Where the thumb sits when it rests on the dot of `sectionIndex`: its middle. */
-const thumbYOnDot = (
-  sectionIndex: number,
-  dotSize: number,
-  dotMargin: number
-) => dotMargin * (sectionIndex + 1) + dotSize * sectionIndex + dotSize / 2;
 
 export type FastScrollSectionDotsBarHandle = {
   /**
@@ -242,6 +240,12 @@ const FastScrollSectionDotsBar = React.forwardRef(
       dotPositionsValue.value = dotPositions;
     }, [dotPositions, dotPositionsValue]);
 
+    // The section the finger last reported, reset when a touch begins. The pan
+    // updates on every frame the finger moves, but JS only needs to hear about
+    // a new section: each onSectionChange restarts the debounce of
+    // onScrollToIndex and the section list's timers, and scrolls that list.
+    const draggedSectionIndex = useSharedValue(-1);
+
     const pan = useMemo(() => {
       /** The thumb follows the finger while it is down. */
       const followFinger = (y: number) => {
@@ -255,7 +259,14 @@ const FastScrollSectionDotsBar = React.forwardRef(
         pointStylePositionY.value = yPosition;
         containerYOnPointStylePositionY.value = containerScrollY.value;
 
-        runOnJS(onThumbPositionChange)(pointStylePositionY.value);
+        const section = findSectionOnPosition(
+          yPosition,
+          dotPositionsValue.value
+        );
+        if (section && section.sectionIndex !== draggedSectionIndex.value) {
+          draggedSectionIndex.value = section.sectionIndex;
+          runOnJS(onThumbPositionChange)(yPosition);
+        }
       };
 
       return (
@@ -268,6 +279,9 @@ const FastScrollSectionDotsBar = React.forwardRef(
             enableExternalScrollEvents.value = false;
             scale.value = thumbScaleOnPress;
             runOnJS(fingerDown)();
+            // A new touch always reports its section, even the one the last
+            // drag ended on: it opens the section list again.
+            draggedSectionIndex.value = -1;
             followFinger(event.y);
           })
           // The finger has moved far enough to activate the pan, then moves on
@@ -290,6 +304,9 @@ const FastScrollSectionDotsBar = React.forwardRef(
             containerYOnPointStylePositionY.value = containerScrollY.value;
             scale.value = 1;
 
+            // Always reported, even when the section did not change: the
+            // list scrolls to the section the thumb snaps to once the
+            // debounce settles after the lift.
             runOnJS(onThumbPositionChange)(pointStylePositionY.value);
             runOnJS(fingerUp)();
           })
@@ -300,6 +317,7 @@ const FastScrollSectionDotsBar = React.forwardRef(
       dotMargin,
       dotPositionsValue,
       dotSize,
+      draggedSectionIndex,
       enableExternalScrollEvents,
       fingerDown,
       fingerUp,
@@ -321,20 +339,44 @@ const FastScrollSectionDotsBar = React.forwardRef(
       };
     });
 
+    // Apps call the handle from JS on every viewability change. On
+    // Reanimated 3, reading a shared value from JS takes the UI runtime's
+    // lock, so the JS thread waits while the UI thread runs worklets, which
+    // it does on every frame of a scroll. The handle only sends the section
+    // to the UI thread, which does the reads there.
+    const followListOnUI = useMemo(
+      () =>
+        runOnUI((sectionIndex: number) => {
+          'worklet';
+          // A finger on the dots leads: the list's reports trail behind it.
+          if (!enableExternalScrollEvents.value) {
+            return;
+          }
+          pointStylePositionY.value = thumbYOnDot(
+            sectionIndex,
+            dotSize,
+            dotMargin
+          );
+          containerYOnPointStylePositionY.value = containerScrollY.value;
+        }),
+      [
+        containerScrollY,
+        containerYOnPointStylePositionY,
+        dotMargin,
+        dotSize,
+        enableExternalScrollEvents,
+        pointStylePositionY,
+      ]
+    );
+
     React.useImperativeHandle(
       forwardedRef,
       (): FastScrollSectionDotsBarHandle => ({
         onSectionChange: (section: SectionFullData) => {
-          if (enableExternalScrollEvents.value) {
-            pointStylePositionY.value = thumbYOnDot(
-              section.sectionIndex,
-              dotSize,
-              dotMargin
-            );
-            containerYOnPointStylePositionY.value = containerScrollY.value;
-          }
+          followListOnUI(section.sectionIndex);
         },
-      })
+      }),
+      [followListOnUI]
     );
 
     const styles = useMemo(
