@@ -7,4 +7,5 @@ export type RootStackParamList = {
   DotsLayout: undefined;
   MemoryLeak: undefined;
   ReplaceSections: undefined;
+  IndicatorCost: undefined;
 };

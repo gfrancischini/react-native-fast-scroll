@@ -10,6 +10,7 @@ import StaleCallback from './staleCallback/StaleCallback';
 import DotsLayout from './dotsLayout/DotsLayout';
 import MemoryLeak from './memoryLeak/MemoryLeak';
 import ReplaceSections from './replaceSections/ReplaceSections';
+import IndicatorCost from './indicatorCost/IndicatorCost';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -25,6 +26,7 @@ const NavigationTree = () => {
           <Stack.Screen name="DotsLayout" component={DotsLayout} />
           <Stack.Screen name="MemoryLeak" component={MemoryLeak} />
           <Stack.Screen name="ReplaceSections" component={ReplaceSections} />
+          <Stack.Screen name="IndicatorCost" component={IndicatorCost} />
         </Stack.Group>
 
         <Stack.Group screenOptions={{ presentation: 'modal' }}>
