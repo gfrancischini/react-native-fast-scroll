@@ -1,7 +1,7 @@
 import type { SectionFullData } from '../types';
 
 import React, { useCallback, useMemo } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 /** How far (px) the finger may move before a touch on a row stops being a tap. */
@@ -89,11 +89,17 @@ function FastScrollSectionFullListItem({
     [item.sectionIndex, onPress]
   );
 
+  // The detector attaches to its child's native view. On the New Architecture
+  // a `Text` does not get one of its own (it can be flattened into its
+  // parent), so Gesture Handler logs an error for every row; a view that
+  // cannot be collapsed always has one.
   return (
     <GestureDetector gesture={tap}>
-      <Text accessibilityRole="button" style={styles.text}>
-        {finalText}
-      </Text>
+      <View collapsable={false}>
+        <Text accessibilityRole="button" style={styles.text}>
+          {finalText}
+        </Text>
+      </View>
     </GestureDetector>
   );
 }

@@ -55,16 +55,6 @@ Found by running the example app on Expo SDK 52 (Reanimated 3.16, Gesture
 Handler 2.20, New Architecture), closer to production than the dev
 dependencies.
 
-### Every section list row logs a gesture-handler error
-
-[FastScrollSectionFullListItem.tsx:92-97](../src/FastScrollSectionDots/FastScrollSectionFullListItem.tsx#L92-L97):
-the row's `GestureDetector` wraps a `Text`, and on the New Architecture Gesture
-Handler logs "GestureDetector has received a child that may get
-view-flattened" for each row, as a red error in development. Tapping a row
-still scrolls the list on Android. Wrapping the `Text` in
-`<View collapsable={false}>` is what the message asks for. The indicator's
-track view has no `collapsable={false}` either.
-
 ### A drag on the dots sometimes scrolls the list instead
 
 Not confirmed. On the Android emulator, two of six drags on the dots bar,
