@@ -110,14 +110,25 @@ describe('FastScrollIndicator', () => {
     expect(isScrollBarShown()).toBe(true);
   });
 
-  it.each([-0.1, 1.1])(
-    'ignores a scroll offset of %p outside the 0..1 range',
-    (offset) => {
-      const { scrollListTo } = renderIndicator();
+  // An iOS list bounces past either end: from the middle, one scroll frame can
+  // already report an offset beyond the end it is flung to.
+  it.each([
+    [-0.1, 0],
+    [1.1, 500],
+  ])(
+    'pins the thumb to the end of the track when the list overscrolls to %p',
+    (offset, thumbPosition) => {
+      const { scrollListTo } = renderIndicator({
+        hideFastScrollIndicatorTimeout: 1000,
+      });
+      scrollListTo(0.5);
+      act(() => jest.advanceTimersByTime(800));
 
       scrollListTo(offset);
 
-      expect(isScrollBarShown()).toBe(false);
+      expect(getThumbPosition()).toBe(thumbPosition);
+      act(() => jest.advanceTimersByTime(800));
+      expect(isScrollBarShown()).toBe(true);
     }
   );
 
