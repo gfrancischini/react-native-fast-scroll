@@ -8,4 +8,5 @@ export type RootStackParamList = {
   MemoryLeak: undefined;
   ReplaceSections: undefined;
   IndicatorCost: undefined;
+  IndicatorBounce: undefined;
 };
