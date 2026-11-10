@@ -445,6 +445,35 @@ describe('FastScrollSectionDots', () => {
     expect(onScrollToIndex.mock.calls).toEqual([[9]]);
   });
 
+  it('scrolls the list to the dragged section a second after the finger reaches its dot, even while the finger keeps moving over it', () => {
+    const { onScrollToIndex } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+    });
+    const finger = touchDown(FINGER_ON.fruits);
+    finger.moveTo(FINGER_ON.vegetables);
+    act(() => jest.advanceTimersByTime(600));
+
+    // A few pixels further down, still nearest to Vegetables' dot.
+    finger.moveTo(FINGER_ON.vegetables + 3);
+    act(() => jest.advanceTimersByTime(399));
+    expect(onScrollToIndex).not.toHaveBeenCalled();
+
+    act(() => jest.advanceTimersByTime(1));
+    expect(onScrollToIndex.mock.calls).toEqual([[5]]);
+  });
+
+  it('opens the section list again when a new touch lands on the dot the last drag ended on', () => {
+    renderDots({ hideFastScrollIndicatorTimeout: 0 });
+    drag([FINGER_ON.fruits, FINGER_ON.vegetables]);
+    // The section list closes 3 s after the finger lifts.
+    act(() => jest.advanceTimersByTime(3000));
+    expect(screen.queryByText('Vegetables')).not.toBeOnTheScreen();
+
+    touchDown(FINGER_ON.vegetables);
+
+    expect(screen.getByText('Vegetables')).toBeOnTheScreen();
+  });
+
   // Apps rebuild onScrollToIndex when what it reads changes, e.g. the height of
   // a header drawn over the list that it passes as viewOffset.
   it('scrolls with the onScrollToIndex of the latest render once the drag settles', () => {

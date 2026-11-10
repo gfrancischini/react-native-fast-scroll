@@ -65,46 +65,6 @@ list; the other four worked. Check it again before treating it as a bug.
 
 None of these grows memory over time: they cost CPU and short-lived garbage.
 
-### The dots bar reads shared values synchronously on viewability changes
-
-[FastScrollSectionDotsBar.tsx:266-271](../src/FastScrollSectionDots/FastScrollSectionDotsBar.tsx#L266-L271):
-the bar's `onSectionChange` handle, reached from `onViewableIndexChanged`, reads
-`enableExternalScrollEvents.value` and `containerScrollY.value` on the JS
-thread. On Reanimated 3 (native), reading `.value` from JS goes through
-`executeOnUIRuntimeSync` (`react-native-reanimated` `src/mutables.ts`), which
-takes the UI runtime's lock and runs the read on the JS thread: the JS thread
-waits while the UI thread runs worklets. On the example's IndicatorCost screen,
-two such reads during a scroll took 0.44-0.79 ms at the median and 12-17 ms at
-p95 (Android emulator, production bundle). On Reanimated 2.12, which this repo
-develops against, the read is cheap, so tests do not show it.
-
-It runs on viewability changes, not on every frame, so it costs far less than
-the same reads did in `FastScrollIndicator`, which now keeps JS copies (the
-track height from `onLayout`, a finger-on-track flag set with `runOnJS` from
-the pan's `onBegin` / `onFinalize`). The same approach applies here.
-
-### Dragging the dots does work on every frame, even without a section change
-
-[FastScrollSectionDotsBar.tsx:189-201](../src/FastScrollSectionDots/FastScrollSectionDotsBar.tsx#L189-L201):
-every pan update calls `runOnJS(onThumbPositionChange)`. On the JS thread that
-maps and searches the sections, then calls `onSectionChange`
-([FastScrollSectionDots.tsx:195-206](../src/FastScrollSectionDots/FastScrollSectionDots.tsx#L195-L206)).
-That call restarts the debounce, calls `lockScrollBarVisibility(true)`, and
-calls `show()`
-([FastScrollSectionFullList.tsx:103-124](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L103-L124)),
-which:
-
-- starts an animated `scrollToIndex` on the section list;
-- resets the 1 s rescroll timer and the 3 s hide timer.
-
-That is about four `clearTimeout` / `setTimeout` pairs and a restarted scroll
-animation per frame, even while the finger stays on one section.
-
-Possible fix: find the section in the worklet (`findSectionOnPosition` already
-is one), keep the last `sectionIndex` in a shared value, and only cross to JS
-when it changes. The finger already holds the list open from `onBegin` to
-`onFinalize`, so `show()` would not need to touch its hide timer at all.
-
 ### Both components restart the hide timer on every scroll frame
 
 Apps call `onScrollToOffsetPercentage` on every `onScroll` frame, on both

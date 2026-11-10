@@ -26,9 +26,21 @@ export const calculateYPosition = ({
   };
 };
 
-export const findSectionOnPosition = (
+/** Where the thumb sits when it rests on the dot of `sectionIndex`: its middle. */
+export const thumbYOnDot = (
+  sectionIndex: number,
+  dotSize: number,
+  dotMargin: number
+) => {
+  'worklet';
+  return dotMargin * (sectionIndex + 1) + dotSize * sectionIndex + dotSize / 2;
+};
+
+export const findSectionOnPosition = <
+  T extends Pick<SectionDataWithDimensions, 'y'>
+>(
   positionY: number,
-  sections: SectionDataWithDimensions[]
+  sections: T[]
 ) => {
   'worklet';
   const snapPoints = sections.map((section) => section.y);
