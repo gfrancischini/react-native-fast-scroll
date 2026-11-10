@@ -34,13 +34,6 @@ a device yet.
 Possible fix: scroll once the list has mounted (for example `initialScrollIndex`
 or an effect on the active section), instead of in `show()`.
 
-### `FastScrollIndicator` drops offsets outside 0..1 instead of clamping them
-
-[FastScrollIndicator.tsx:243](../src/FastScrollIndicator/FastScrollIndicator.tsx#L243):
-`onScrollToOffsetPercentage` returns early for values below 0 or above 1. On an
-iOS bounce the list reports those values, so the thumb stays where it was
-instead of reaching the top or the bottom. Clamp to 0..1 instead.
-
 ### Sections built from `stickyHeaderIndices` all read "1"
 
 [utils.ts:232](../src/utils.ts#L232): `createFullSectionData` gives each section

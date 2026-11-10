@@ -81,8 +81,8 @@ export type FastScrollIndicatorHandle = {
   /**
    * Call this method when the onScroll of your list changes
    * You need to calculate the percentage between 0 and 1
-   * @param offsetPercentage between 0 and 1
-   * @returns
+   * @param offsetPercentage between 0 and 1. Values outside it, such as the
+   * ones an iOS list reports while it bounces, keep the thumb at that end.
    */
   onScrollToOffsetPercentage: (offsetPercentage: number) => void;
 };
@@ -272,20 +272,17 @@ export const FastScrollIndicator = React.forwardRef(
       forwardedRef,
       (): FastScrollIndicatorHandle => ({
         onScrollToOffsetPercentage(offsetPercentage: number) {
-          if (offsetPercentage < 0 || offsetPercentage > 1) {
-            // console.warn(
-            //   `onScrollToOffsetPercentage only allow values between 0 and 1. Received = ${offsetPercentage}`
-            // );
-            return;
-          }
-
           if (fingerOnTrack.current) {
             // event is ignored as the scrolling is being done by the thumbs
             return;
           }
 
+          // A list that bounces past either end (iOS) reports offsets below 0
+          // and above 1, and can come to rest just past 1. The thumb stays at
+          // that end of the track.
+          const clampedOffset = Math.min(1, Math.max(0, offsetPercentage));
           translateY.value =
-            offsetPercentage * (trackHeight.current - thumbSize.height);
+            clampedOffset * (trackHeight.current - thumbSize.height);
 
           showFastScrollBar();
         },
