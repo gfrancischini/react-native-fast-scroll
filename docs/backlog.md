@@ -71,8 +71,11 @@ None of these grows memory over time: they cost CPU and short-lived garbage.
 the bar's `onSectionChange` handle, reached from `onViewableIndexChanged`, reads
 `enableExternalScrollEvents.value` and `containerScrollY.value` on the JS
 thread. On Reanimated 3 (native), reading `.value` from JS goes through
-`executeOnUIRuntimeSync` (`react-native-reanimated` `src/mutables.ts`): the JS
-thread blocks until the UI runtime answers. On Reanimated 2.12, which this repo
+`executeOnUIRuntimeSync` (`react-native-reanimated` `src/mutables.ts`), which
+takes the UI runtime's lock and runs the read on the JS thread: the JS thread
+waits while the UI thread runs worklets. On the example's IndicatorCost screen,
+two such reads during a scroll took 0.44-0.79 ms at the median and 12-17 ms at
+p95 (Android emulator, production bundle). On Reanimated 2.12, which this repo
 develops against, the read is cheap, so tests do not show it.
 
 It runs on viewability changes, not on every frame, so it costs far less than
