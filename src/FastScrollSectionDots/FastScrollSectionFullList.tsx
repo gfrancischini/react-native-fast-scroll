@@ -98,8 +98,8 @@ const FastScrollSectionFullList = React.forwardRef(
     );
 
     // The list closes a while after the last show() or scroll. show() only
-    // runs while the finger moves on the dots, so a finger resting on them
-    // holds the list open instead.
+    // runs when the finger touches, reaches another dot or lifts, so a finger
+    // on the dots holds the list open instead.
     const held = useRef(false);
     const startShowActiveIndexVisibleTimer = useCallback(() => {
       startHideTimer();
@@ -128,31 +128,49 @@ const FastScrollSectionFullList = React.forwardRef(
       []
     );
 
+    // Read when the list lays out, which can be before the state update that
+    // set the active section has rendered.
+    const activeSectionRef = useRef<SectionFullData | null>(null);
+
+    /**
+     * Centers the active section's row, then again a second later: rows the
+     * list had not measured yet cannot be scrolled to on the first attempt.
+     */
+    const centerActiveSection = useCallback(() => {
+      const section = activeSectionRef.current;
+      if (!flatListRef.current || !section) {
+        return;
+      }
+      flatListRef.current.scrollToIndex({
+        index: section.sectionIndex,
+        viewPosition: 0.5,
+      });
+      if (rescrollTimeout.current) {
+        clearTimeout(rescrollTimeout.current);
+        rescrollTimeout.current = null;
+      }
+      rescrollTimeout.current = setTimeout(() => {
+        if (flatListRef.current) {
+          flatListRef.current.scrollToIndex({
+            index: section.sectionIndex,
+            viewPosition: 0.5,
+          });
+        }
+      }, 1000);
+    }, []);
+
     React.useImperativeHandle(
       forwardedRef,
       (): FastScrollSectionFullListHandle => ({
         show(section: SectionFullData) {
           setActiveIndexVisible(true);
           setActiveSection(section);
+          activeSectionRef.current = section;
           startShowActiveIndexVisibleTimer();
-          if (flatListRef.current) {
-            flatListRef.current.scrollToIndex({
-              index: section.sectionIndex,
-              viewPosition: 0.5,
-            });
-            if (rescrollTimeout.current) {
-              clearTimeout(rescrollTimeout.current);
-              rescrollTimeout.current = null;
-            }
-            rescrollTimeout.current = setTimeout(() => {
-              if (flatListRef.current) {
-                flatListRef.current.scrollToIndex({
-                  index: section.sectionIndex,
-                  viewPosition: 0.5,
-                });
-              }
-            }, 1000);
-          }
+          // When show() opens the list, it is not mounted yet: it centers the
+          // section once it lays out (onLayout below). The dots only call
+          // show() again when the finger reaches another dot.
+          centerActiveSection();
         },
         hold(isHeld: boolean) {
           held.current = isHeld;
@@ -191,6 +209,7 @@ const FastScrollSectionFullList = React.forwardRef(
         ref={setFlatListRef}
         style={styles.list}
         contentContainerStyle={styles.listContainer}
+        onLayout={centerActiveSection}
         onScrollToIndexFailed={() => {
           // just ignore to avoid errors/crashes
         }}

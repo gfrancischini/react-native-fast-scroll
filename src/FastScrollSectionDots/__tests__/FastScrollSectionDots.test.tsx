@@ -761,6 +761,21 @@ describe('FastScrollSectionDots', () => {
     expect(isAnythingShown()).toBe(false);
   });
 
+  // The touch opens the list, so it is not there yet to scroll when the touch
+  // reports its section, and the finger only reports again on another dot.
+  it('centers the section a touch opens the section list on, while the finger stays on its dot', () => {
+    renderDots({ hideFastScrollIndicatorTimeout: 0 });
+    const finger = touchDown(FINGER_ON.dairy);
+    layoutSectionList({ visibleHeight: 40, rowHeight: 30 });
+    const scrollTo: jest.Mock = getSectionListScrollView().instance.scrollTo;
+
+    finger.moveTo(FINGER_ON.dairy + 2);
+    act(() => jest.advanceTimersByTime(1000));
+
+    // Dairy's row spans 60..90; centered in a 40px list, the list shows 55..95.
+    expect(scrollTo.mock.calls).toEqual([[{ y: 55 }]]);
+  });
+
   it('scrolls the open section list to center the section under the finger, and again a second later', () => {
     renderDots({ hideFastScrollIndicatorTimeout: 0 });
     drag([FINGER_ON.fruits]);
