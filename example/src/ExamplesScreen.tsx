@@ -26,6 +26,7 @@ export const ExamplesScreen = () => {
     { title: 'DotsLayout', destination: 'DotsLayout' },
     { title: 'MemoryLeak', destination: 'MemoryLeak' },
     { title: 'ReplaceSections', destination: 'ReplaceSections' },
+    { title: 'IndicatorCost', destination: 'IndicatorCost' },
   ];
   return (
     <>
