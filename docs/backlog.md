@@ -15,6 +15,8 @@ npm has 0.3.4. On top of it, `main` has these changes:
 - The dots' thumb starts on the current section each time the bar shows.
 - The hide and retry timers are cleared on unmount.
 - The indicator keeps its thumb at the end while the list overscrolls.
+- The indicator's thumb stays under a finger that lands while the list is
+  still reporting its scroll.
 - Neither component reads a shared value from JS on the scroll or drag path
   (on Reanimated 3 that read blocks the JS thread), and a drag on the dots
   crosses to JS only when the section changes.
@@ -26,10 +28,9 @@ the whole patch (see `CLAUDE.md`).
 
 Before that release:
 
-- Check two items on a device, with the example app (Reanimated 3): "The
-  indicator's thumb can leave the finger when it is grabbed while the list
-  moves" and "The open section list jumps instead of gliding while the finger
-  crosses dots" below. Neither can show under Jest.
+- Check on a device, with the example app (Reanimated 3), "The open section
+  list jumps instead of gliding while the finger crosses dots" below. It
+  cannot show under Jest.
 - Decide whether "The indicator shows itself while the list overscrolls" below
   is wanted.
 - Carried over from the 0.3.4 release, in case it was not done then: check on a
@@ -39,31 +40,6 @@ Before that release:
   that path.
 
 ## Bugs
-
-### The indicator's thumb can leave the finger when it is grabbed while the list moves
-
-[FastScrollIndicator.tsx:224-229](../src/FastScrollIndicator/FastScrollIndicator.tsx#L224-L229):
-the "finger on the track" flag reaches JS through `runOnJS`. Scroll events
-already queued on the JS thread when the finger lands still pass the check in
-`onScrollToOffsetPercentage`
-([line 275](../src/FastScrollIndicator/FastScrollIndicator.tsx#L275)) and write
-the list's old position to `translateY`, after the pan's `onBegin` wrote the
-finger's. The thumb then stays there until the finger moves far enough to
-activate the pan, or lifts.
-
-Before, the flag was a shared value set on the UI thread at touch down and read
-synchronously from JS, which rejected those events. It had the mirror problem
-on lift (late scroll events moved the thumb back), which the JS flag fixes.
-
-Not confirmed on a device. It needs a busy JS thread, such as a fling through a
-long list, and it cannot show under Jest, where `runOnJS` is synchronous.
-
-Possible fix: write the thumb the way the dots bar does
-([FastScrollSectionDotsBar.tsx:347-370](../src/FastScrollSectionDots/FastScrollSectionDotsBar.tsx#L347-L370)):
-send the offset to the UI thread with `runOnUI` and check a shared flag there.
-A write to a shared value from JS already crosses to the UI thread, so it costs
-the same. Keep the JS flag for the hide timer only. That also leaves one
-pattern for "a finger leads, the list's reports are ignored" instead of two.
 
 ### The indicator shows itself while the list overscrolls
 

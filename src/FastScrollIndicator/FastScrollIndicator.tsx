@@ -9,6 +9,7 @@ import { StyleSheet, ColorValue, LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
+  runOnUI,
   SlideInLeft,
   SlideInRight,
   SlideOutLeft,
@@ -112,14 +113,21 @@ export const FastScrollIndicator = React.forwardRef(
     const translateFastScrollBarXTimer = useRef<NodeJS.Timeout | null>(null);
     const viewLayout = useSharedValue({ x: 0, y: 0, height: 0, width: 0 });
 
-    // Apps call onScrollToOffsetPercentage on every scroll frame. On
-    // Reanimated 3, reading a shared value from JS takes the UI runtime's
-    // lock, so the JS thread waits while the UI thread runs worklets, which
-    // it does on every frame of a scroll (this thumb's springs, at least).
-    // So that handle reads JS copies instead: the track's height, kept from
-    // onLayout, and whether a finger is on the track, set from the pan's
-    // onBegin and onFinalize.
-    const trackHeight = useRef(0);
+    // While a finger is on the track it leads, and the list's reports through
+    // onScrollToOffsetPercentage are ignored. Those reports trail the finger
+    // at both ends of the touch, so the pan keeps two copies of the flag:
+    // - On the UI thread, set the moment the finger lands. The handle sends
+    //   the thumb's new position there and the check runs there, so a report
+    //   that was already in line on the JS thread when the finger landed can
+    //   no longer pull the thumb from under it.
+    // - On the JS thread, set through runOnJS, behind the list's scroll events
+    //   already in line there. The handle checks it first: when the finger
+    //   lifts, those events report where the finger was a few frames before.
+    //   It also keeps them from restarting the hide timer under the finger.
+    // The handle never reads a shared value: apps call it on every scroll
+    // frame, and on Reanimated 3 that read blocks the JS thread until the UI
+    // thread answers.
+    const fingerOnTrackOnUI = useSharedValue(false);
     const fingerOnTrack = useRef(false);
     const setFingerOnTrack = useCallback((isOnTrack: boolean) => {
       fingerOnTrack.current = isOnTrack;
@@ -127,7 +135,6 @@ export const FastScrollIndicator = React.forwardRef(
     const onTrackLayout = useCallback(
       (event: LayoutChangeEvent) => {
         viewLayout.value = event.nativeEvent.layout;
-        trackHeight.current = event.nativeEvent.layout.height;
       },
       [viewLayout]
     );
@@ -223,7 +230,8 @@ export const FastScrollIndicator = React.forwardRef(
           // The finger touches the track
           .onBegin((event) => {
             scale.value = thumbScaleOnPress;
-            // Before the list scrolls: its scroll events are ignored from now on.
+            // Before the list scrolls: its reports are ignored from now on.
+            fingerOnTrackOnUI.value = true;
             runOnJS(setFingerOnTrack)(true);
             followFinger(event.y);
           })
@@ -236,12 +244,14 @@ export const FastScrollIndicator = React.forwardRef(
             processScroll(yPercentage);
             translateY.value = yPosition;
             scale.value = 1;
+            fingerOnTrackOnUI.value = false;
             runOnJS(setFingerOnTrack)(false);
             runOnJS(scheduleHideFastScrollbar)();
           })
       );
     }, [
       clearTimeoutFastScrollBar,
+      fingerOnTrackOnUI,
       processScrollJSThread,
       scale,
       scheduleHideFastScrollbar,
@@ -268,6 +278,20 @@ export const FastScrollIndicator = React.forwardRef(
       };
     });
 
+    /** Moves the thumb to where the list is, unless a finger is on the track. */
+    const followListOnUI = useMemo(
+      () =>
+        runOnUI((offsetPercentage: number) => {
+          'worklet';
+          if (fingerOnTrackOnUI.value) {
+            return;
+          }
+          translateY.value =
+            offsetPercentage * (viewLayout.value.height - thumbHeight);
+        }),
+      [fingerOnTrackOnUI, thumbHeight, translateY, viewLayout]
+    );
+
     React.useImperativeHandle(
       forwardedRef,
       (): FastScrollIndicatorHandle => ({
@@ -280,9 +304,7 @@ export const FastScrollIndicator = React.forwardRef(
           // A list that bounces past either end (iOS) reports offsets below 0
           // and above 1, and can come to rest just past 1. The thumb stays at
           // that end of the track.
-          const clampedOffset = Math.min(1, Math.max(0, offsetPercentage));
-          translateY.value =
-            clampedOffset * (trackHeight.current - thumbSize.height);
+          followListOnUI(Math.min(1, Math.max(0, offsetPercentage)));
 
           showFastScrollBar();
         },
