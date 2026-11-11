@@ -28,13 +28,19 @@ grouped by category, with both components layered over it:
   default). `scrollToOffsetPercentage` maps 0..1 to FlashList `scrollToOffset`
   over the scrollable height (content height minus viewport height).
 - **Handle calls.** Every `onScroll` frame calls `onScrollToOffsetPercentage` on
-  both components, so that path has to stay cheap. `onViewableIndexChanged` is
-  called with the first viewable index, debounced 500 ms by the app.
+  both components, so that path has to stay cheap. The value is not clamped:
+  the app divides the offset by the scrollable height, floored at 1 px, so an
+  iOS bounce reports values below 0 and above 1, and far outside that range on
+  a list shorter than its viewport. `onViewableIndexChanged` is called with the
+  first viewable index, debounced 500 ms by the app.
 - Both use `hideFastScrollIndicatorTimeout` 2000. Sections can be collapsed,
   which keeps header indices stable but hides the rows between them.
 
 **Generic list wrapper** - a shared FlashList wrapper renders a right-side
-`FastScrollIndicator` over every list in the app, wired the same way.
+`FastScrollIndicator` over every list in the app but never calls its handle,
+so the thumb never shows there. The wrapper keeps the scroll offset in state
+and passes an inline `scrollToOffsetPercentage`, so the indicator re-renders
+on every scroll frame of every list: its render has to stay cheap.
 
 **Sectioned list with a tab bar** - one screen of the app puts a
 `FastScrollSectionTab` above a FlashList of rows grouped by category, with a
@@ -114,7 +120,11 @@ only fits one side's typings fails there.
   full-list item taps scroll to `startIndex`.
 - **Imperative handles are the integration point.** Apps call
   `onViewableIndexChanged` / `onScrollToOffsetPercentage` on a ref from their
-  list's callbacks. Treat handle names and signatures as public API.
+  list's callbacks. Treat handle names and signatures as public API. A handle
+  runs on the JS thread, as often as every scroll frame, and on Reanimated 3 a
+  shared value read from JS blocks until the UI thread answers. So a handle
+  reads JS copies kept in refs (`FastScrollIndicator`) or sends the work to the
+  UI thread with `runOnUI` (`FastScrollSectionDotsBar`).
 - **Two version targets.** Code must run on the minimum peers this repo
   develops against (`react-native-reanimated` 2.12, `react-native-gesture-handler`
   2.8, the dev dependencies) and on the versions production runs

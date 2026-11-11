@@ -7,53 +7,69 @@ Fast Scroll implementation over Flashlist for react native
 ## Installation
 
 ```sh
-yarn install react-native-fast-scroll
+yarn add react-native-fast-scroll
 ```
 
 ## Requirements
 
-1. React Native Gesture Handler
-2. React Native Reanimated >= 2
+The package's peer dependencies:
+
+1. `react-native-gesture-handler` >= 2.8
+2. `react-native-reanimated` >= 2.12
+3. `react-native-redash`
+4. `@shopify/flash-list`
 
 ## Usage of the FastScroll Indicator
+
+The indicator works with offsets from 0 (the top of the list) to 1 (its end),
+over the height the list can scroll: its content minus its own height.
 
 ```js
 import { FastScrollIndicator } from 'react-native-fast-scroll';
 
 // ...
 
-const scrollToOffsetPercentage = (offsetPercentage: number) => {
-    const flashListHeight =
-      flashListRef.current?.recyclerlistview_unsafe?.getContentDimension()
-        .height ?? 1;
-    const offset = offsetPercentage * flashListHeight;
-    flashListRef.current?.scrollToOffset({
-      offset,
-    });
-}
+const contentHeight = useRef(0);
+const listHeight = useRef(0);
+const scrollableHeight = () =>
+  Math.max(0, contentHeight.current - listHeight.current);
 
+// The thumb was dragged: scroll the list.
+const scrollToOffsetPercentage = (offsetPercentage: number) => {
+  flashListRef.current?.scrollToOffset({
+    offset: offsetPercentage * scrollableHeight(),
+    animated: false,
+  });
+};
+
+// The list scrolled: move the thumb.
 const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-  const flashListHeight =
-    flashListRef.current?.recyclerlistview_unsafe?.getContentDimension()
-      .height ?? 1;
+  const scrollable = scrollableHeight();
   const offsetPercentage =
-    event.nativeEvent.contentOffset.y / flashListHeight;
+    scrollable > 0 ? event.nativeEvent.contentOffset.y / scrollable : 0;
   fastScrollIndicatorRef.current?.onScrollToOffsetPercentage(
     offsetPercentage
   );
   fastScrollSectionDotsRef.current?.onScrollToOffsetPercentage(
     offsetPercentage
   );
-}
+};
 
+<FlashList
+  ref={flashListRef}
+  onScroll={onScroll}
+  onContentSizeChange={(_width, height) => (contentHeight.current = height)}
+  onLayout={(event) => (listHeight.current = event.nativeEvent.layout.height)}
+  // ...
+/>
 
 <FastScrollIndicator
-    scrollToOffsetPercentage={scrollToOffsetPercentage}
-    hideFastScrollIndicatorTimeout={2000}
-    side={'right'}
-    ref={fastScrollIndicatorRef}
-    thumbColor={'rgba(65, 64, 66, 0.6)'}
-    scrollBarColor={'transparent'}
+  scrollToOffsetPercentage={scrollToOffsetPercentage}
+  hideFastScrollIndicatorTimeout={2000}
+  side={'right'}
+  ref={fastScrollIndicatorRef}
+  thumbColor={'rgba(65, 64, 66, 0.6)'}
+  scrollBarColor={'transparent'}
 />
 ```
 
