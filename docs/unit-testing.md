@@ -134,9 +134,12 @@ for a required prop).
 
 Unlike many app repos, **test files are covered by both static gates here**:
 
-- **`yarn typecheck`** (`tsc --noEmit`) uses the root `tsconfig.json`, which
-  only excludes `example/`, so every `*.test.ts(x)` is type-checked. Jest
-  globals (`describe`, `it`, `expect`, `jest`) are typed by `@types/jest`.
+- **`yarn typecheck`** runs `tsc --noEmit` twice. The first pass uses the root
+  `tsconfig.json`, which only excludes `example/`, so every `*.test.ts(x)` is
+  type-checked, against the dev dependencies. Jest globals (`describe`, `it`,
+  `expect`, `jest`) are typed by `@types/jest`. The second pass (`-p example`)
+  checks the example app and the `src/` files it imports against the example's
+  peers (Reanimated 3); it does not reach the test files.
 - **`yarn lint`** lints `**/*.{js,ts,tsx}`, which includes test files and the
   `jest/` setup directory.
 

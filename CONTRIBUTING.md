@@ -6,15 +6,15 @@ We want this community to be friendly and respectful to each other. Please follo
 
 ## Development workflow
 
-To get started with the project, run `yarn` in the root directory to install the required dependencies for each package:
+To get started with the project, use the Node version in `.nvmrc` and run `yarn bootstrap` in the root directory. It installs the dependencies of the example app, then those of the library. `yarn typecheck` needs both.
 
 ```sh
-yarn
+yarn bootstrap
 ```
 
 > While it's possible to use [`npm`](https://github.com/npm/cli), the tooling is built around [`yarn`](https://classic.yarnpkg.com/), so you'll have an easier time if you use `yarn` for development.
 
-While developing, you can run the [example app](/example/) to test your changes. Any changes you make in your library's JavaScript code will be reflected in the example app without a rebuild. If you change any native code, then you'll need to rebuild the example app.
+While developing, you can run the [example app](/example/) to test your changes. It runs in Expo Go (SDK 52) and uses the library's source directly, so any change you make in the library shows up without a rebuild. The library has no native code.
 
 To start the packager:
 
@@ -71,15 +71,15 @@ We follow the [conventional commits specification](https://www.conventionalcommi
 - `test`: adding or updating tests, e.g. add integration tests using detox.
 - `chore`: tooling changes, e.g. change CI config.
 
-Our pre-commit hooks verify that your commit message matches this format when committing.
+No git hook checks the format: the hooks in `lefthook.yml` are disabled.
 
 ### Linting and tests
 
 [ESLint](https://eslint.org/), [Prettier](https://prettier.io/), [TypeScript](https://www.typescriptlang.org/)
 
-We use [TypeScript](https://www.typescriptlang.org/) for type checking, [ESLint](https://eslint.org/) with [Prettier](https://prettier.io/) for linting and formatting the code, and [Jest](https://jestjs.io/) for testing.
+We use [TypeScript](https://www.typescriptlang.org/) for type checking, [ESLint](https://eslint.org/) with [Prettier](https://prettier.io/) for linting and formatting the code, and [Jest](https://jestjs.io/) for testing. [docs/unit-testing.md](docs/unit-testing.md) has the rules for writing tests.
 
-Our pre-commit hooks verify that the linter and tests pass when committing.
+CI runs the linter, the type check, the tests and the build on every pull request. No git hook runs them when committing, so run them before you push.
 
 ### Publishing to npm
 
@@ -95,7 +95,7 @@ yarn release
 
 The `package.json` file contains various scripts for common tasks:
 
-- `yarn bootstrap`: setup project by installing all dependencies and pods.
+- `yarn bootstrap`: setup project by installing the dependencies of the example app and of the library.
 - `yarn typecheck`: type-check files with TypeScript.
 - `yarn lint`: lint files with ESLint.
 - `yarn test`: run unit tests with Jest.
@@ -112,5 +112,4 @@ When you're sending a pull request:
 - Prefer small pull requests focused on one change.
 - Verify that linters and tests are passing.
 - Review the documentation to make sure it looks good.
-- Follow the pull request template when opening a pull request.
 - For pull requests that change the API or implementation, discuss with maintainers first by opening an issue.
