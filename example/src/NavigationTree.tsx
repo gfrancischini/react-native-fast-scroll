@@ -12,6 +12,7 @@ import MemoryLeak from './memoryLeak/MemoryLeak';
 import ReplaceSections from './replaceSections/ReplaceSections';
 import IndicatorCost from './indicatorCost/IndicatorCost';
 import IndicatorBounce from './indicatorBounce/IndicatorBounce';
+import IndicatorGrab from './indicatorGrab/IndicatorGrab';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -29,6 +30,7 @@ const NavigationTree = () => {
           <Stack.Screen name="ReplaceSections" component={ReplaceSections} />
           <Stack.Screen name="IndicatorCost" component={IndicatorCost} />
           <Stack.Screen name="IndicatorBounce" component={IndicatorBounce} />
+          <Stack.Screen name="IndicatorGrab" component={IndicatorGrab} />
         </Stack.Group>
 
         <Stack.Group screenOptions={{ presentation: 'modal' }}>

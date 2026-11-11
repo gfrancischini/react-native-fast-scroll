@@ -28,6 +28,7 @@ export const ExamplesScreen = () => {
     { title: 'ReplaceSections', destination: 'ReplaceSections' },
     { title: 'IndicatorCost', destination: 'IndicatorCost' },
     { title: 'IndicatorBounce', destination: 'IndicatorBounce' },
+    { title: 'IndicatorGrab', destination: 'IndicatorGrab' },
   ];
   return (
     <>
