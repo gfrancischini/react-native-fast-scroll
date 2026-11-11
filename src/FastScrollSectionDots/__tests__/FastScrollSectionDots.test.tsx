@@ -869,4 +869,67 @@ describe('FastScrollSectionDots', () => {
       [{ y: 55 }],
     ]);
   });
+
+  it('does not scroll the section list to a section the app removed before the retry a second later', () => {
+    const { replaceSections } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+    });
+    drag([FINGER_ON.dairy]);
+    layoutSectionList({ visibleHeight: 40, rowHeight: 30 });
+    const scrollTo: jest.Mock = getSectionListScrollView().instance.scrollTo;
+    scrollTo.mockClear();
+
+    // Within the second, a filter leaves only Fruits and Vegetables.
+    replaceSections(SECTIONS.slice(0, 2));
+
+    expect(() => act(() => jest.advanceTimersByTime(1000))).not.toThrow();
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  // The section list sizes its content only up to the rows it has measured, so
+  // it grows with each batch of rows it renders. On the New Architecture it
+  // reports each new size before the layout of the rows that caused it, so a
+  // section in the last batch is still waiting to be centered once every row
+  // is laid out.
+  it('does not scroll the section list to a section the app removed while it waited to center it', () => {
+    const aisles = (count: number): Section[] =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i * 10,
+        text: `Aisle ${i}`,
+      }));
+    const { replaceSections } = renderDots({
+      hideFastScrollIndicatorTimeout: 0,
+      sections: aisles(30),
+    });
+
+    // A quick tap on Aisle 25's dot, which starts at 12 * 26 + 10 * 25 = 562.
+    drag([565]);
+    const scrollView = getSectionListScrollView();
+    const layout = (y: number, height: number) => ({
+      nativeEvent: { layout: { x: 0, y, width: 100, height } },
+    });
+    fireEvent(scrollView, 'layout', layout(0, 100));
+    /** The list renders a batch of 10 rows, reports its size, then lays them out. */
+    const layoutBatch = (first: number) => {
+      act(() => jest.advanceTimersByTime(100));
+      fireEvent(scrollView, 'contentSizeChange', 100, (first + 10) * 30);
+      Array.from({ length: 10 }, (_, i) => first + i).forEach((i) =>
+        fireEvent(screen.getByText(`Aisle ${i}`), 'layout', layout(i * 30, 30))
+      );
+    };
+    layoutBatch(0);
+    layoutBatch(10);
+    layoutBatch(20);
+    act(() => jest.advanceTimersByTime(1000));
+    const scrollTo: jest.Mock = scrollView.instance.scrollTo;
+    scrollTo.mockClear();
+
+    // The list is still open when a filter leaves 25 aisles: Aisle 25 is gone.
+    replaceSections(aisles(25));
+
+    expect(() =>
+      fireEvent(scrollView, 'contentSizeChange', 100, 25 * 30)
+    ).not.toThrow();
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
 });
