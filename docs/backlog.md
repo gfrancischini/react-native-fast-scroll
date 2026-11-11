@@ -26,8 +26,6 @@ the whole patch (see `CLAUDE.md`).
 
 Before that release:
 
-- Fix "The section list can center a section that no longer exists" below: it
-  can throw. It is rare, but the fix is a bounds check and clearing one ref.
 - Check two items on a device, with the example app (Reanimated 3): "The
   indicator's thumb can leave the finger when it is grabbed while the list
   moves" and "The open section list jumps instead of gliding while the finger
@@ -41,53 +39,6 @@ Before that release:
   that path.
 
 ## Bugs
-
-### The section list can center a section that no longer exists
-
-The section list can scroll to a `sectionIndex` it kept from before the app
-passed new sections. When that index is past the new last row, `scrollToIndex`
-throws `scrollToIndex out of range` from a timer or an event handler. The
-throw is an `invariant`, which also throws in release builds, and no error
-boundary catches it there, so it is a fatal JS error. When the index is still
-in range, the list scrolls by itself to the row that now has it.
-
-It takes the app passing fewer sections while the section list is open, and
-there are two ways in:
-
-- **The retry a second after `show()`**
-  ([FastScrollSectionFullList.tsx:232-236](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L232-L236))
-  keeps the section it was scheduled with, so the sections have to change
-  within that second. 0.3.2 and 0.3.4 have this one too.
-- **The pending section**, new since 0.3.4, open for as long as the list stays
-  open (3 s after the lift).
-  - `sectionToCenter` is cleared only when `centerPendingSection`
-    ([lines 169-181](../src/FastScrollSectionDots/FastScrollSectionFullList.tsx#L169-L181))
-    centers its row, which it tries on each content size change. Neither the
-    1 s retry nor closing the list clears it.
-  - A `FlatList` without `getItemLayout` sizes its tail spacer only up to the
-    rows it has measured. So its content size changes once per batch of rows it
-    renders, up to 10 rows a batch, and the batch that ends the list causes the
-    last change.
-  - The New Architecture emits a view's layout event before its children's
-    (`YogaLayoutableShadowNode::layout`), so the list reports each batch's size
-    before those rows are measured. When the touched row is in the batch that
-    ends the list, and that batch is not the first, its centering misses on the
-    last change and the section stays pending.
-  - The next content size change, which new sections cause, then centers the
-    old index.
-
-Reproduced under Jest in a throwaway test, with the events fired in that order:
-30 sections, a quick tap on the dot of section 25, then 25 sections, and
-`scrollToIndex` throws. A tap on section 15, in a middle batch, ends clean. The
-event order was read in React Native's source, not observed on a device.
-
-An app that unmounts the dots while its data reloads, for example behind a
-loading view, takes neither path: the dots start over with the new sections.
-
-Possible fix: clear `sectionToCenter` in the 1 s retry and when the list
-closes, and skip a `sectionIndex` that is not below `sections.length` in
-`centerSection`. "Center the section list without a virtualized list" under
-Proposals removes the pending state altogether.
 
 ### The indicator's thumb can leave the finger when it is grabbed while the list moves
 
@@ -296,9 +247,8 @@ centers a row through four mechanisms: `onContentSizeChange`, a 50 ms poll
 while no row is measured, a jump to an estimated offset, and a retry after 1 s.
 `centerMiss` ties them together, and only works because `FlatList` calls
 `onScrollToIndexFailed` synchronously inside `scrollToIndex`. All of it works
-around virtualization, for a list of one short row per section, and "The
-section list can center a section that no longer exists" above comes from the
-state it keeps.
+around virtualization, for a list of one short row per section, and the state
+it keeps once let the list center a section the app had removed.
 
 A `ScrollView` that records each row's y from `onLayout` can center with one
 exact `scrollTo` once the row is laid out. That drops `sectionToCenter`,

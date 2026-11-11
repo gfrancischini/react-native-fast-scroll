@@ -129,9 +129,22 @@ const FastScrollSectionFullList = React.forwardRef(
       []
     );
 
+    // The retries below run after show(), by when the app may have passed other
+    // sections. A section kept from before then is centered only if it is
+    // still there: the row at its position has the same list index. Otherwise
+    // the list would scroll to whatever row now has that position, and past
+    // the last row scrollToIndex throws.
+    const sectionsRef = useRef(sections);
+    sectionsRef.current = sections;
+
     /** Centers the row of `section` in the list, when the list is on screen. */
     const centerSection = useCallback(
       (section: SectionFullData, animated?: boolean) => {
+        if (
+          sectionsRef.current[section.sectionIndex]?.index !== section.index
+        ) {
+          return;
+        }
         flatListRef.current?.scrollToIndex({
           index: section.sectionIndex,
           viewPosition: 0.5,
