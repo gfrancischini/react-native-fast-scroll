@@ -7,7 +7,12 @@ import {
   layoutPanArea,
   touchDown,
 } from '../../__fixtures__/gestures';
+import { whileJsThreadIsBusy } from '../../__fixtures__/jsThread';
 import { getThumbPosition } from '../../__fixtures__/positions';
+
+jest.mock('react-native-reanimated', () =>
+  require('../../__fixtures__/jsThread').reanimatedWithJsThread()
+);
 
 // A 50px thumb on a 550px track: its center travels from y=25 to y=525.
 const THUMB = { width: 7, height: 50, borderRadius: 7 };
@@ -205,6 +210,43 @@ describe('FastScrollIndicator', () => {
     expect(isScrollBarShown()).toBe(true);
     act(() => jest.advanceTimersByTime(1));
     expect(isScrollBarShown()).toBe(false);
+  });
+
+  // On a device the pan tells the JS thread that a finger is down through
+  // runOnJS, behind the list's scroll events already in line there, as when
+  // the finger catches a list that is still flinging.
+  it('keeps the thumb under the finger when the list reports its old offset as the finger lands', () => {
+    const { scrollListTo } = renderIndicator({
+      hideFastScrollIndicatorTimeout: 1000,
+    });
+    scrollListTo(0.1);
+
+    whileJsThreadIsBusy(() => {
+      touchDown(275);
+      scrollListTo(0.2);
+    });
+    act(() => jest.advanceTimersByTime(5000));
+
+    expect(getThumbPosition()).toBe(250);
+    expect(isScrollBarShown()).toBe(true);
+  });
+
+  // The other end of the touch: the pan tells the JS thread that the finger
+  // lifted behind the list's scroll events of the drag, which report where the
+  // finger was a few frames before.
+  it('keeps the thumb where the finger lifts when the list reports an earlier offset of the drag', () => {
+    const { scrollListTo } = renderIndicator();
+    scrollListTo(0.1);
+    const finger = touchDown(275);
+    finger.moveTo(400);
+
+    whileJsThreadIsBusy(() => {
+      finger.lift();
+      scrollListTo(0.5);
+    });
+
+    // The thumb's top at the finger: 400 - 25.
+    expect(getThumbPosition()).toBe(375);
   });
 
   it('follows the list again once the finger lifts', () => {

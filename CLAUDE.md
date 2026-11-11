@@ -123,8 +123,13 @@ only fits one side's typings fails there.
   list's callbacks. Treat handle names and signatures as public API. A handle
   runs on the JS thread, as often as every scroll frame, and on Reanimated 3 a
   shared value read from JS blocks until the UI thread answers. So a handle
-  reads JS copies kept in refs (`FastScrollIndicator`) or sends the work to the
-  UI thread with `runOnUI` (`FastScrollSectionDotsBar`).
+  reads JS copies kept in refs or sends the work to the UI thread with
+  `runOnUI`. While a finger on a bar leads, the handle sends the thumb's move to
+  the UI thread, and the worklet drops it there if the pan has set its "finger
+  down" flag, so a report already in line when the finger lands cannot move the
+  thumb. `FastScrollIndicator` also checks a JS copy of the flag first: its list
+  follows the drag, so scroll events from the drag keep arriving after the
+  finger lifts.
 - **Two version targets.** Code must run on the minimum peers this repo
   develops against (`react-native-reanimated` 2.12, `react-native-gesture-handler`
   2.8, the dev dependencies) and on the versions production runs

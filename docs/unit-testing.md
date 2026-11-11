@@ -186,7 +186,8 @@ that restores the native `Promise`. Keep it until RN is upgraded to 0.71+.
 `react-native-reanimated` is **not** mocked. Under Jest it switches to its JS
 implementation, so shared values, `useAnimatedStyle`, `withSpring`, `runOnJS`
 and the `entering`/`exiting` layout animations all execute. `runOnJS(fn)` calls
-`fn` synchronously there.
+`fn` synchronously there; a test that needs the call to wait uses [A busy JS
+thread](#a-busy-js-thread).
 
 Its frame clock reads `global.ReanimatedDataMock.now()`, which `jest/setup.js`
 backs with `Date.now()`. Consequence: animations follow Jest's clock - with fake
@@ -217,6 +218,31 @@ expect(getThumbPosition()).toBe(39); // the middle of the second dot
 
 Everything else animated (scale, slide-in) is decoration: assert on what is
 rendered and which callbacks fired.
+
+### A busy JS thread
+
+On a device a pan runs on the UI thread, and its `runOnJS(fn)(...)` puts the
+call in line on the JS thread, behind the work already there, such as the
+list events an app forwards to a handle. Under Jest `fn` runs at once, so a
+handle call never lands between a gesture and the calls it sent to JS. A suite
+that tests that order mocks Reanimated with `reanimatedWithJsThread` from
+`src/__fixtures__/jsThread.ts` and wraps the overlap in `whileJsThreadIsBusy`:
+
+```tsx
+jest.mock('react-native-reanimated', () =>
+  require('../../__fixtures__/jsThread').reanimatedWithJsThread()
+);
+
+whileJsThreadIsBusy(() => {
+  touchDown(275); // the pan runs; its runOnJS calls wait in line
+  scrollListTo(0.2); // a list event that was in line before them
+}); // then the waiting calls run, in order
+```
+
+It is the real Reanimated with a `runOnJS` that waits only inside
+`whileJsThreadIsBusy`, so the rest of the suite runs as everywhere else.
+`runOnUI` still runs at once, in order with the gesture callbacks, as the UI
+thread runs it on a device.
 
 ### Gestures
 
@@ -443,7 +469,9 @@ queries, `@testing-library/jest-native`) do not match this setup.
   covers.
 - Reanimated, gesture-handler, redash and `throttle-debounce` run for real.
   Never mock them to make a test pass; if one fails to load, fix the global
-  setup in `jest/` instead of the test.
+  setup in `jest/` instead of the test. The one partial mock,
+  `reanimatedWithJsThread`, adds the thread hop Jest leaves out ([A busy JS
+  thread](#a-busy-js-thread)).
 - Mock at module boundaries with `jest.mock('module')` at the top of the file.
   Type mock access with `jest.mocked(fn)`; build partial expectations with
   `expect.objectContaining` rather than exhaustive literals.
