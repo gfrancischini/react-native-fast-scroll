@@ -9,4 +9,5 @@ export type RootStackParamList = {
   ReplaceSections: undefined;
   IndicatorCost: undefined;
   IndicatorBounce: undefined;
+  IndicatorGrab: undefined;
 };
